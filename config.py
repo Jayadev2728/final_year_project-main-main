@@ -48,8 +48,8 @@ DNN_FACE_CONFIDENCE_THRESHOLD = 0.5   # 0-1. Higher = stricter (fewer false posi
                                        # might miss some distant/angled faces).
 
 # ── Drowsiness (EAR) ─────────────────────────────────────────────
-EAR_THRESHOLD  = 0.23
-DROWSY_SECONDS = 1.5     # continuous eyes-closed time before flagging drowsy.
+EAR_THRESHOLD  = 0.15
+DROWSY_SECONDS = 3    # continuous eyes-closed time before flagging drowsy.
                           # Time-based rather than frame-count based, because
                           # frame rate varies with how much else is running
                           # (YOLO + MediaPipe + LBPH every frame) — a fixed
@@ -59,7 +59,7 @@ EAR_RESET_TOLERANCE_FRAMES = 3   # how many consecutive above-threshold frames
                                   # are allowed before resetting the drowsy timer.
                                   # Absorbs a single jittery landmark-tracking
                                   # frame instead of resetting on any blip.
-DEBUG_PRINT_EAR = False   # True prints live EAR values to the terminal —
+DEBUG_PRINT_EAR = True   # True prints live EAR values to the terminal —
                            # use this to find the right EAR_THRESHOLD for your
                            # actual camera/distance instead of guessing.
 DROWSY_CROP_PADDING_RATIO = 0.3   # extra margin around each detected face before
@@ -98,7 +98,7 @@ PHONE_ALERT_PENALTY  = 15
 DROWSY_ALERT_PENALTY = 10
 
 # ── Phone detection (YOLO) ───────────────────────────────────────
-YOLO_EVERY_N_FRAMES = 3   # run YOLO every Nth frame instead of every frame — big FPS win,
+YOLO_EVERY_N_FRAMES = 1  # run YOLO every Nth frame instead of every frame — big FPS win,
                            # especially over a network camera stream like Iriun
 
 # ── Attendance ────────────────────────────────────────────────────

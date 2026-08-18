@@ -1,515 +1,1104 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ClassSentinel — Live Monitor</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
-<style>
-  :root{
-    --bg:        #0E1218;
-    --surface:   #161C25;
-    --surface-2: #1C2430;
-    --border:    #262F3D;
-    --teal:      #4FD1C5;
-    --amber:     #F5A623;
-    --red:       #F2545B;
-    --green:     #4ADE80;
-    --text:      #E7ECF3;
-    --text-mute: #8996A8;
-    --font-display: 'Space Grotesk', sans-serif;
-    --font-body: 'Inter', sans-serif;
-    --font-mono: 'JetBrains Mono', monospace;
-  }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title> SMART ATTENDANCE | Classroom Monitoring & Analytics</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0E1218;
+      --surface: #161C25;
+      --surface-2: #1C2430;
+      --border: #262F3D;
+      --teal: #4FD1C5;
+      --amber: #F5A623;
+      --red: #F2545B;
+      --green: #4ADE80;
+      --text: #E7ECF3;
+      --text-mute: #8996A8;
+      --font-display: 'Space Grotesk', sans-serif;
+      --font-body: 'Inter', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
 
-  *{ box-sizing:border-box; margin:0; padding:0; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-  body{
-    background:var(--bg);
-    color:var(--text);
-    font-family:var(--font-body);
-    min-height:100vh;
-    padding:28px clamp(16px, 4vw, 48px) 64px;
-  }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      padding: 28px clamp(16px, 4vw, 48px) 64px;
+    }
 
-  a{ color:inherit; }
+    a {
+      color: inherit;
+    }
 
-  /* ── Header ─────────────────────────────────────────── */
-  header{
-    position:relative;
-    overflow:hidden;
-    background:linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%);
-    border:1px solid var(--border);
-    border-radius:14px;
-    padding:24px 28px;
-    margin-bottom:24px;
-    display:flex;
-    flex-wrap:wrap;
-    align-items:center;
-    justify-content:space-between;
-    gap:16px;
-  }
+    /* ── Header ─────────────────────────────────────────── */
+    header {
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px 28px;
+      margin-bottom: 24px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
 
-  header::after{
-    content:"";
-    position:absolute;
-    top:0; left:-40%;
-    width:40%; height:100%;
-    background:linear-gradient(90deg, transparent, rgba(79,209,197,0.08), transparent);
-    animation:scan 5s linear infinite;
-  }
+    header::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: -40%;
+      width: 40%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(79, 209, 197, 0.08), transparent);
+      animation: scan 5s linear infinite;
+    }
 
-  @keyframes scan{
-    0%   { left:-40%; }
-    100% { left:100%; }
-  }
+    @keyframes scan {
+      0% {
+        left: -40%;
+      }
 
-  .brand{ position:relative; z-index:1; }
-  .eyebrow{
-    font-family:var(--font-mono);
-    font-size:11px;
-    letter-spacing:0.18em;
-    color:var(--teal);
-    text-transform:uppercase;
-    margin-bottom:6px;
-  }
-  h1{
-    font-family:var(--font-display);
-    font-size:clamp(22px, 3vw, 30px);
-    font-weight:700;
-    letter-spacing:-0.01em;
-  }
+      100% {
+        left: 100%;
+      }
+    }
 
-  .status-cluster{
-    position:relative; z-index:1;
-    display:flex;
-    align-items:center;
-    gap:18px;
-    flex-wrap:wrap;
-  }
+    .brand {
+      position: relative;
+      z-index: 1;
+    }
 
-  .live-pill{
-    display:flex; align-items:center; gap:8px;
-    font-family:var(--font-mono);
-    font-size:12px;
-    letter-spacing:0.06em;
-    color:var(--text-mute);
-    background:var(--surface-2);
-    border:1px solid var(--border);
-    padding:7px 12px;
-    border-radius:100px;
-  }
-  .dot{
-    width:8px; height:8px; border-radius:50%;
-    background:var(--text-mute);
-  }
-  .dot.on{
-    background:var(--green);
-    box-shadow:0 0 0 0 rgba(74,222,128,0.6);
-    animation:pulse 1.6s infinite;
-  }
-  @keyframes pulse{
-    0%   { box-shadow:0 0 0 0 rgba(74,222,128,0.55); }
-    70%  { box-shadow:0 0 0 8px rgba(74,222,128,0); }
-    100% { box-shadow:0 0 0 0 rgba(74,222,128,0); }
-  }
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      color: var(--teal);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
 
-  select{
-    font-family:var(--font-mono);
-    font-size:12px;
-    background:var(--surface-2);
-    color:var(--text);
-    border:1px solid var(--border);
-    border-radius:8px;
-    padding:8px 12px;
-    outline:none;
-  }
+    h1 {
+      font-family: var(--font-display);
+      font-size: clamp(22px, 3vw, 30px);
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
 
-  .dl-btn{
-    display:flex; align-items:center; gap:6px;
-    font-family:var(--font-mono);
-    font-size:12px;
-    background:var(--teal);
-    color:#0E1218;
-    border:none;
-    border-radius:8px;
-    padding:8px 14px;
-    font-weight:600;
-    cursor:pointer;
-    transition:opacity 0.15s;
-  }
-  .dl-btn:hover{ opacity:0.85; }
-  .dl-btn:disabled{
-    background:var(--surface-2);
-    color:var(--text-mute);
-    cursor:not-allowed;
-  }
+    .status-cluster {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
 
-  /* ── Summary cards ──────────────────────────────────── */
-  .cards{
-    display:grid;
-    grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
-    gap:14px;
-    margin-bottom:24px;
-  }
-  .card{
-    background:var(--surface);
-    border:1px solid var(--border);
-    border-radius:12px;
-    padding:18px 20px;
-  }
-  .card .label{
-    font-family:var(--font-mono);
-    font-size:11px;
-    letter-spacing:0.1em;
-    text-transform:uppercase;
-    color:var(--text-mute);
-    margin-bottom:10px;
-  }
-  .card .value{
-    font-family:var(--font-display);
-    font-size:32px;
-    font-weight:700;
-  }
-  .card.accent-teal  .value{ color:var(--teal); }
-  .card.accent-amber .value{ color:var(--amber); }
-  .card.accent-red   .value{ color:var(--red); }
-  .card.accent-green .value{ color:var(--green); }
+    .live-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      color: var(--text-mute);
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      padding: 7px 12px;
+      border-radius: 100px;
+    }
 
-  /* ── Main grid ──────────────────────────────────────── */
-  .grid{
-    display:grid;
-    grid-template-columns:1.3fr 1fr;
-    gap:18px;
-  }
-  @media(max-width:900px){
-    .grid{ grid-template-columns:1fr; }
-  }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-mute);
+    }
 
-  .panel{
-    background:var(--surface);
-    border:1px solid var(--border);
-    border-radius:12px;
-    padding:20px;
-    margin-bottom:18px;
-  }
-  .panel h2{
-    font-family:var(--font-display);
-    font-size:15px;
-    font-weight:600;
-    margin-bottom:14px;
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-  }
-  .panel h2 span.count{
-    font-family:var(--font-mono);
-    font-size:12px;
-    color:var(--text-mute);
-    font-weight:400;
-  }
+    .dot.on {
+      background: var(--green);
+      box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.6);
+      animation: pulse 1.6s infinite;
+    }
 
-  table{ width:100%; border-collapse:collapse; }
-  th{
-    text-align:left;
-    font-family:var(--font-mono);
-    font-size:10px;
-    letter-spacing:0.08em;
-    text-transform:uppercase;
-    color:var(--text-mute);
-    padding:8px 6px;
-    border-bottom:1px solid var(--border);
-  }
-  td{
-    font-size:13px;
-    padding:10px 6px;
-    border-bottom:1px solid rgba(38,47,61,0.5);
-    font-family:var(--font-mono);
-  }
-  tr:last-child td{ border-bottom:none; }
-  .status-tag{
-    font-family:var(--font-mono);
-    font-size:11px;
-    padding:2px 8px;
-    border-radius:100px;
-    display:inline-block;
-  }
-  .status-tag.ontime{ background:rgba(74,222,128,0.12); color:var(--green); }
-  .status-tag.late{ background:rgba(245,166,35,0.12); color:var(--amber); }
-  .status-tag.notmarked{ background:rgba(137,150,168,0.12); color:var(--text-mute); }
+    @keyframes pulse {
+      0% {
+        box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.55);
+      }
 
-  .empty{
-    color:var(--text-mute);
-    font-size:13px;
-    padding:24px 4px;
-    text-align:center;
-  }
+      70% {
+        box-shadow: 0 0 0 8px rgba(74, 222, 128, 0);
+      }
 
-  .alert-row{
-    display:flex;
-    align-items:center;
-    gap:10px;
-    padding:9px 4px;
-    border-bottom:1px solid rgba(38,47,61,0.5);
-    font-size:13px;
-  }
-  .alert-row:last-child{ border-bottom:none; }
-  .alert-icon{
-    width:26px; height:26px;
-    border-radius:7px;
-    display:flex; align-items:center; justify-content:center;
-    font-size:13px;
-    flex-shrink:0;
-  }
-  .alert-icon.phone{ background:rgba(242,84,91,0.14); }
-  .alert-icon.drowsy{ background:rgba(245,166,35,0.14); }
-  .alert-time{
-    font-family:var(--font-mono);
-    color:var(--text-mute);
-    margin-left:auto;
-    font-size:12px;
-  }
+      100% {
+        box-shadow: 0 0 0 0 rgba(74, 222, 128, 0);
+      }
+    }
 
-  canvas{ max-height:220px; }
+    select {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      background: var(--surface-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      outline: none;
+      cursor: pointer;
+      transition: border-color .15s ease;
+    }
 
-  footer{
-    text-align:center;
-    color:var(--text-mute);
-    font-family:var(--font-mono);
-    font-size:11px;
-    margin-top:32px;
-    letter-spacing:0.05em;
-  }
-</style>
+    select:hover {
+      border-color: #3a4759;
+    }
+
+    .dl-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      background: var(--teal);
+      color: #0E1218;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .15s ease, transform .15s ease;
+    }
+
+    .dl-btn:hover {
+      opacity: 0.85;
+      transform: translateY(-1px);
+    }
+
+    .dl-btn:active {
+      transform: translateY(0);
+    }
+
+    .dl-btn:disabled {
+      background: var(--surface-2);
+      color: var(--text-mute);
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* ── Summary cards ──────────────────────────────────── */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card .label {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-mute);
+      margin-bottom: 10px;
+    }
+
+    .card .label svg {
+      width: 13px;
+      height: 13px;
+      opacity: 0.7;
+    }
+
+    .card .value {
+      font-family: var(--font-display);
+      font-size: 32px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .card.accent-teal .value {
+      color: var(--teal);
+    }
+
+    .card.accent-amber .value {
+      color: var(--amber);
+    }
+
+    .card.accent-red .value {
+      color: var(--red);
+    }
+
+    .card.accent-green .value {
+      color: var(--green);
+    }
+
+    .skel {
+      display: inline-block;
+      width: 56px;
+      height: 28px;
+      border-radius: 6px;
+      background: linear-gradient(90deg, var(--surface-2) 25%, #263041 50%, var(--surface-2) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s ease-in-out infinite;
+    }
+
+    @keyframes shimmer {
+      0% {
+        background-position: 200% 0;
+      }
+
+      100% {
+        background-position: -200% 0;
+      }
+    }
+
+    /* ── Main grid ──────────────────────────────────────── */
+    .grid {
+      display: grid;
+      grid-template-columns: 1.3fr 1fr;
+      gap: 18px;
+    }
+
+    @media(max-width:900px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 18px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, .16);
+    }
+
+    .panel h2 {
+      font-family: var(--font-display);
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .panel h2 span.count {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-mute);
+      font-weight: 400;
+      border: 1px solid var(--border);
+      padding: 3px 7px;
+      border-radius: 999px;
+    }
+
+    .search-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 7px 10px;
+      margin-bottom: 12px;
+    }
+
+    .search-box svg {
+      width: 14px;
+      height: 14px;
+      color: var(--text-mute);
+      flex-shrink: 0;
+    }
+
+    .search-box input {
+      background: none;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 13px;
+      width: 100%;
+    }
+
+    .search-box input::placeholder {
+      color: var(--text-mute);
+    }
+
+    .table-scroll {
+      max-height: 340px;
+      overflow-y: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th {
+      text-align: left;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-mute);
+      padding: 8px 6px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: var(--surface);
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+
+    th:hover {
+      color: var(--text);
+    }
+
+    th .arrow {
+      opacity: 0;
+      margin-left: 3px;
+      font-size: 9px;
+    }
+
+    th.sorted .arrow {
+      opacity: 1;
+      color: var(--teal);
+    }
+
+    td {
+      font-size: 13px;
+      padding: 10px 6px;
+      border-bottom: 1px solid rgba(38, 47, 61, 0.5);
+      font-family: var(--font-mono);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tbody tr {
+      transition: background .15s ease;
+    }
+
+    tbody tr:hover td {
+      background: rgba(79, 209, 197, .04);
+    }
+
+    tbody tr.row-flash {
+      animation: rowFlash 1.6s ease;
+    }
+
+    @keyframes rowFlash {
+      0% {
+        background: rgba(79, 209, 197, .22);
+      }
+
+      100% {
+        background: transparent;
+      }
+    }
+
+    .status-tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 100px;
+      display: inline-block;
+    }
+
+    .status-tag.ontime {
+      background: rgba(74, 222, 128, 0.12);
+      color: var(--green);
+    }
+
+    .status-tag.late {
+      background: rgba(245, 166, 35, 0.12);
+      color: var(--amber);
+    }
+
+    .status-tag.notmarked {
+      background: rgba(137, 150, 168, 0.12);
+      color: var(--text-mute);
+    }
+
+    .engage-pill {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 100px;
+      display: inline-block;
+    }
+
+    .engage-pill.hi {
+      background: rgba(74, 222, 128, 0.12);
+      color: var(--green);
+    }
+
+    .engage-pill.mid {
+      background: rgba(245, 166, 35, 0.12);
+      color: var(--amber);
+    }
+
+    .engage-pill.lo {
+      background: rgba(242, 84, 91, 0.12);
+      color: var(--red);
+    }
+
+    .count-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 20px;
+      height: 20px;
+      padding: 0 6px;
+      border-radius: 999px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .count-badge.zero {
+      background: transparent;
+      color: var(--text-mute);
+    }
+
+    .count-badge.nonzero.phone {
+      background: rgba(242, 84, 91, 0.14);
+      color: var(--red);
+    }
+
+    .count-badge.nonzero.drowsy {
+      background: rgba(245, 166, 35, 0.14);
+      color: var(--amber);
+    }
+
+    .empty {
+      color: var(--text-mute);
+      font-size: 13px;
+      padding: 24px 4px;
+      text-align: center;
+    }
+
+    .alert-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 4px;
+      border-bottom: 1px solid rgba(38, 47, 61, 0.5);
+      font-size: 13px;
+    }
+
+    .alert-row:last-child {
+      border-bottom: none;
+    }
+
+    .alert-row.alert-new {
+      animation: slideIn .4s ease;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateX(-8px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    .alert-icon {
+      width: 26px;
+      height: 26px;
+      border-radius: 7px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .alert-icon svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .alert-icon.phone {
+      background: rgba(242, 84, 91, 0.14);
+      color: var(--red);
+    }
+
+    .alert-icon.drowsy {
+      background: rgba(245, 166, 35, 0.14);
+      color: var(--amber);
+    }
+
+    .alert-time {
+      font-family: var(--font-mono);
+      color: var(--text-mute);
+      margin-left: auto;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    canvas {
+      max-height: 220px;
+    }
+
+    footer {
+      text-align: center;
+      color: var(--text-mute);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      margin-top: 32px;
+      letter-spacing: 0.05em;
+    }
+
+    /* Premium academic presentation layer */
+    .hero-subtitle {
+      margin-top: 6px;
+      color: var(--text-mute);
+      font-size: 12px;
+      letter-spacing: .01em
+    }
+
+    header {
+      box-shadow: 0 18px 45px rgba(0, 0, 0, .22);
+      background: linear-gradient(135deg, #142337, #0f1723)
+    }
+
+    .card {
+      box-shadow: 0 12px 30px rgba(0, 0, 0, .18);
+      transition: transform .18s ease, border-color .18s ease
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      border-color: #334258
+    }
+
+    .dl-btn {
+      box-shadow: 0 6px 18px rgba(79, 209, 197, .14)
+    }
+
+    /* ── Toast notifications ──────────────────────────────── */
+    #toastStack {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 999;
+      max-width: 320px;
+    }
+
+    .toast {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--teal);
+      border-radius: 10px;
+      padding: 11px 14px;
+      font-size: 13px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, .35);
+      animation: toastIn .3s ease, toastOut .3s ease 3.7s forwards;
+    }
+
+    .toast.phone {
+      border-left-color: var(--red);
+    }
+
+    .toast.drowsy {
+      border-left-color: var(--amber);
+    }
+
+    .toast svg {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+    }
+
+    @keyframes toastIn {
+      from {
+        opacity: 0;
+        transform: translateX(20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    @keyframes toastOut {
+      to {
+        opacity: 0;
+        transform: translateX(20px);
+      }
+    }
+  </style>
 </head>
+
 <body>
 
-<header>
-  <div class="brand">
-    <div class="eyebrow">Classroom Monitoring System</div>
-    <h1>ClassSentinel</h1>
-  </div>
-  <div class="status-cluster">
-    <div class="live-pill"><span class="dot" id="liveDot"></span><span id="liveLabel">CONNECTING</span></div>
-    <select id="sessionSelect"></select>
-    <button class="dl-btn" id="downloadBtn" onclick="downloadReport()">⬇ Download Report</button>
-  </div>
-</header>
-
-<div class="cards">
-  <div class="card accent-teal">
-    <div class="label">Students Present</div>
-    <div class="value" id="cardMarked">—</div>
-  </div>
-  <div class="card accent-red">
-    <div class="label">Phone Alerts</div>
-    <div class="value" id="cardPhone">—</div>
-  </div>
-  <div class="card accent-amber">
-    <div class="label">Drowsy Alerts</div>
-    <div class="value" id="cardDrowsy">—</div>
-  </div>
-  <div class="card accent-green">
-    <div class="label">Avg Engagement</div>
-    <div class="value" id="cardEngagement">—</div>
-  </div>
-</div>
-
-<div class="grid">
-  <div>
-    <div class="panel">
-      <h2>Student Summary <span class="count" id="attCount"></span></h2>
-      <div id="attendanceWrap"><div class="empty">No students detected yet.</div></div>
+  <header>
+    <div class="brand">
+      <div class="eyebrow">Smart Attendance and Student Monitoring System</div>
+      <h1>ClassSentinel</h1>
+      <div class="hero-subtitle">Intelligent attendance, behavioural alerts and engagement analytics</div>
     </div>
-    <div class="panel">
-      <h2>Engagement Over Time</h2>
-      <canvas id="engagementChart"></canvas>
+    <div class="status-cluster">
+      <div class="live-pill"><span class="dot" id="liveDot"></span><span id="liveLabel">CONNECTING</span></div>
+      <select id="sessionSelect"></select>
+      <button class="dl-btn" id="downloadBtn" onclick="downloadReport()">Download Session Report</button>
+    </div>
+  </header>
+
+  <div
+    style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:-8px 2px 18px;color:var(--text-mute);font-size:12px">
+    <span>Selected session: <strong id="sessionContext" style="color:var(--text)">Loading...</strong></span><span>Last
+      synchronized: <strong id="syncTime" style="color:var(--text)">--:--:--</strong></span></div>
+
+  <div class="cards">
+    <div class="card accent-teal">
+      <div class="label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+        Students Present
+      </div>
+      <div class="value" id="cardMarked"><span class="skel"></span></div>
+    </div>
+    <div class="card accent-red">
+      <div class="label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="5" y="2" width="14" height="20" rx="2" />
+          <path d="M12 18h.01" />
+        </svg>
+        Phone Alerts
+      </div>
+      <div class="value" id="cardPhone"><span class="skel"></span></div>
+    </div>
+    <div class="card accent-amber">
+      <div class="label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 6v6l4 2" />
+        </svg>
+        Drowsy Alerts
+      </div>
+      <div class="value" id="cardDrowsy"><span class="skel"></span></div>
+    </div>
+    <div class="card accent-green">
+      <div class="label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+        </svg>
+        Avg Engagement
+      </div>
+      <div class="value" id="cardEngagement"><span class="skel"></span></div>
     </div>
   </div>
 
-  <div>
-    <div class="panel">
-      <h2>Recent Alerts</h2>
-      <div id="alertsWrap"><div class="empty">No alerts yet.</div></div>
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h2>Student Monitoring <span class="count" id="attCount"></span></h2>
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.3-4.3" />
+          </svg>
+          <input type="text" id="studentSearch" placeholder="Search by name or ID...">
+        </div>
+        <div class="table-scroll">
+          <div id="attendanceWrap">
+            <div class="empty">No students detected yet.</div>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Engagement Analytics <span class="count">SESSION TREND</span></h2>
+        <canvas id="engagementChart"></canvas>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <h2>Recent Alerts <span class="count">LIVE FEED</span></h2>
+        <div id="alertsWrap">
+          <div class="empty">No alerts yet.</div>
+        </div>
+      </div>
     </div>
   </div>
-</div>
 
-<footer>ClassSentinel · Face Recognition + YOLOv8 + MediaPipe · Auto-refreshing every 4s</footer>
+  <footer>ClassSentinel • YuNet + SFace • YOLOv8 • MediaPipe • SQLite • Live synchronization every 4 seconds</footer>
 
-<script>
-const API = ""; // same origin as Flask
-let currentSession = null;
-let chart = null;
+  <div id="toastStack"></div>
 
-async function fetchJSON(url){
-  const res = await fetch(API + url);
-  if(!res.ok) throw new Error("Request failed: " + url);
-  return res.json();
-}
+  <script>
+    const API = ""; // same origin as Flask
+    let currentSession = null;
+    let chart = null;
+    let sortColumn = null;
+    let sortDirection = 1;   // 1 = ascending, -1 = descending
+    let studentFilter = "";
+    let latestStudents = [];
+    let seenAlertKeys = new Set();
+    let firstAlertsLoad = true;
 
-async function loadSessions(){
-  try{
-    const sessions = await fetchJSON("/api/sessions");
-    const select = document.getElementById("sessionSelect");
-    const prevValue = select.value;
-    select.innerHTML = "";
-    if(sessions.length === 0){
-      select.innerHTML = "<option>No sessions yet</option>";
-      setLive(false);
-      return;
+    const ICONS = {
+      phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>',
+      drowsy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><path d="M8 12h.01M16 12h.01"/></svg>'
+    };
+
+    async function fetchJSON(url) {
+      const res = await fetch(API + url);
+      if (!res.ok) throw new Error("Request failed: " + url);
+      return res.json();
     }
-    sessions.forEach(s => {
-      const opt = document.createElement("option");
-      opt.value = s.id;
-      const label = s.end_time ? `Session #${s.id} (ended ${s.end_time.split(" ")[1] || ""})` : `Session #${s.id} (live)`;
-      opt.textContent = label;
-      select.appendChild(opt);
-    });
-    // default to most recent session unless the user picked another one
-    select.value = prevValue && [...select.options].some(o => o.value === prevValue) ? prevValue : sessions[0].id;
-    currentSession = select.value;
-    setLive(sessions[0].end_time === null && select.value == sessions[0].id);
-  }catch(e){
-    setLive(false, true);
-  }
-}
 
-function setLive(isLive, errored){
-  const dot = document.getElementById("liveDot");
-  const label = document.getElementById("liveLabel");
-  if(errored){
-    dot.className = "dot";
-    label.textContent = "BACKEND OFFLINE";
-    return;
-  }
-  dot.className = isLive ? "dot on" : "dot";
-  label.textContent = isLive ? "LIVE" : "SESSION ENDED";
-}
+    function animateValue(el, newValue, suffix) {
+      suffix = suffix || "";
+      const prev = parseFloat(el.dataset.val || "0");
+      const target = parseFloat(newValue);
+      if (isNaN(target)) { el.textContent = newValue; return; }
+      if (prev === target) { el.textContent = target + suffix; el.dataset.val = target; return; }
+      const duration = 450;
+      const start = performance.now();
+      function frame(now) {
+        const t = Math.min(1, (now - start) / duration);
+        const eased = 1 - Math.pow(1 - t, 3);
+        const current = prev + (target - prev) * eased;
+        el.textContent = (Number.isInteger(target) ? Math.round(current) : current.toFixed(1)) + suffix;
+        if (t < 1) requestAnimationFrame(frame);
+        else el.dataset.val = target;
+      }
+      requestAnimationFrame(frame);
+    }
 
-function statusTag(status){
-  const cls = status === "Late" ? "late" : status === "On Time" ? "ontime" : "notmarked";
-  return `<span class="status-tag ${cls}">${status}</span>`;
-}
+    async function loadSessions() {
+      try {
+        const sessions = await fetchJSON("/api/sessions");
+        const select = document.getElementById("sessionSelect");
+        const prevValue = select.value;
+        select.innerHTML = "";
+        if (sessions.length === 0) {
+          select.innerHTML = "<option>No sessions yet</option>";
+          setLive(false);
+          return;
+        }
+        sessions.forEach(s => {
+          const opt = document.createElement("option");
+          opt.value = s.id;
+          const label = s.end_time ? `Session #${s.id} (ended ${s.end_time.split(" ")[1] || ""})` : `Session #${s.id} (live)`;
+          opt.textContent = label;
+          select.appendChild(opt);
+        });
+        const changedSession = prevValue && currentSession && String(prevValue) !== String(currentSession);
+        select.value = prevValue && [...select.options].some(o => o.value === prevValue) ? prevValue : sessions[0].id;
+        if (currentSession !== select.value) {
+          seenAlertKeys = new Set();
+          firstAlertsLoad = true;
+        }
+        currentSession = select.value;
+        const selectedSession = sessions.find(s => String(s.id) === String(currentSession));
+        document.getElementById("sessionContext").textContent = selectedSession ? `#${selectedSession.id} · ${selectedSession.start_time || "Unknown start"}` : "—";
+        setLive(sessions[0].end_time === null && select.value == sessions[0].id);
+      } catch (e) {
+        setLive(false, true);
+      }
+    }
 
-async function refreshDashboard(){
-  if(!currentSession) return;
+    function setLive(isLive, errored) {
+      const dot = document.getElementById("liveDot");
+      const label = document.getElementById("liveLabel");
+      if (errored) {
+        dot.className = "dot";
+        label.textContent = "BACKEND OFFLINE";
+        return;
+      }
+      dot.className = isLive ? "dot on" : "dot";
+      label.textContent = isLive ? "LIVE" : "SESSION ENDED";
+    }
 
-  try{
-    const [summary, students, alerts, engagement] = await Promise.all([
-      fetchJSON(`/api/summary/${currentSession}`),
-      fetchJSON(`/api/student-summary/${currentSession}`),
-      fetchJSON(`/api/alerts/${currentSession}`),
-      fetchJSON(`/api/engagement/${currentSession}`)
-    ]);
+    function statusTag(status) {
+      const cls = status === "Late" ? "late" : status === "On Time" ? "ontime" : "notmarked";
+      return `<span class="status-tag ${cls}">${status}</span>`;
+    }
 
-    document.getElementById("cardMarked").textContent = summary.total_marked;
-    document.getElementById("cardPhone").textContent = summary.phone_alerts;
-    document.getElementById("cardDrowsy").textContent = summary.drowsy_alerts;
-    document.getElementById("cardEngagement").textContent = summary.avg_engagement + "%";
+    function engagementPill(score) {
+      const cls = score >= 70 ? "hi" : score >= 40 ? "mid" : "lo";
+      return `<span class="engage-pill ${cls}">${score}%</span>`;
+    }
 
-    // Unified student summary table
-    document.getElementById("attCount").textContent = students.length ? `${students.length} present` : "";
-    const attWrap = document.getElementById("attendanceWrap");
-    if(students.length === 0){
-      attWrap.innerHTML = `<div class="empty">No students detected yet.</div>`;
-    }else{
-      let rows = students.map(s => `
-        <tr>
-          <td>${s.student_id}</td>
-          <td>${s.student_name}</td>
-          <td>${statusTag(s.attendance)}</td>
-          <td>${s.first_seen}</td>
-          <td>${s.phone_alerts}</td>
-          <td>${s.drowsy_alerts}</td>
-          <td>${s.engagement}%</td>
-        </tr>`).join("");
+    function countBadge(count, type) {
+      if (count === 0) return `<span class="count-badge zero">0</span>`;
+      return `<span class="count-badge nonzero ${type}">${count}</span>`;
+    }
+
+    function sortStudents(students) {
+      if (!sortColumn) return students;
+      const sorted = [...students].sort((a, b) => {
+        let av = a[sortColumn], bv = b[sortColumn];
+        if (typeof av === "string") av = av.toLowerCase();
+        if (typeof bv === "string") bv = bv.toLowerCase();
+        if (av < bv) return -1 * sortDirection;
+        if (av > bv) return 1 * sortDirection;
+        return 0;
+      });
+      return sorted;
+    }
+
+    function renderStudentTable() {
+      const attWrap = document.getElementById("attendanceWrap");
+      const filtered = latestStudents.filter(s =>
+        !studentFilter ||
+        s.student_name.toLowerCase().includes(studentFilter) ||
+        s.student_id.toLowerCase().includes(studentFilter)
+      );
+      document.getElementById("attCount").textContent = latestStudents.length ? `${latestStudents.length} present` : "";
+
+      if (latestStudents.length === 0) {
+        attWrap.innerHTML = `<div class="empty">No students detected yet.</div>`;
+        return;
+      }
+      if (filtered.length === 0) {
+        attWrap.innerHTML = `<div class="empty">No students match "${studentFilter}".</div>`;
+        return;
+      }
+
+      const sorted = sortStudents(filtered);
+      const cols = [
+        { key: "student_id", label: "ID" }, { key: "student_name", label: "Name" },
+        { key: "attendance", label: "Attend." }, { key: "first_seen", label: "First Seen" },
+        { key: "phone_alerts", label: "📵" }, { key: "drowsy_alerts", label: "😴" }, { key: "engagement", label: "Engage." }
+      ];
+      const headHtml = cols.map(c => {
+        const isSorted = sortColumn === c.key;
+        const arrow = isSorted ? (sortDirection === 1 ? "▲" : "▼") : "▲";
+        return `<th class="${isSorted ? "sorted" : ""}" data-col="${c.key}">${c.label}<span class="arrow">${arrow}</span></th>`;
+      }).join("");
+
+      const rows = sorted.map(s => `
+    <tr data-id="${s.student_id}">
+      <td>${s.student_id}</td>
+      <td>${s.student_name}</td>
+      <td>${statusTag(s.attendance)}</td>
+      <td>${s.first_seen}</td>
+      <td>${countBadge(s.phone_alerts, "phone")}</td>
+      <td>${countBadge(s.drowsy_alerts, "drowsy")}</td>
+      <td>${engagementPill(s.engagement)}</td>
+    </tr>`).join("");
+
       attWrap.innerHTML = `
-        <table>
-          <thead><tr><th>ID</th><th>Name</th><th>Attend.</th><th>First Seen</th><th>📵</th><th>😴</th><th>Engage.</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>`;
+    <table>
+      <thead><tr>${headHtml}</tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+
+      attWrap.querySelectorAll("th").forEach(th => {
+        th.addEventListener("click", () => {
+          const col = th.dataset.col;
+          if (sortColumn === col) sortDirection *= -1;
+          else { sortColumn = col; sortDirection = 1; }
+          renderStudentTable();
+        });
+      });
     }
 
-    // Alerts feed (merged, most recent first)
-    const merged = [
-      ...alerts.phone.map(a => ({...a, type:"phone"})),
-      ...alerts.drowsy.map(a => ({...a, type:"drowsy"}))
-    ].sort((a,b) => (a.time < b.time ? 1 : -1)).slice(0, 20);
-
-    const alertsWrap = document.getElementById("alertsWrap");
-    if(merged.length === 0){
-      alertsWrap.innerHTML = `<div class="empty">No alerts yet.</div>`;
-    }else{
-      alertsWrap.innerHTML = merged.map(a => `
-        <div class="alert-row">
-          <div class="alert-icon ${a.type}">${a.type === "phone" ? "📵" : "😴"}</div>
-          <div>${a.type === "phone" ? `Phone detected${a.student_name ? " — " + a.student_name : " (unidentified)"}` : "Drowsiness detected"}</div>
-          <div class="alert-time">${a.time}</div>
-        </div>`).join("");
-    }
-
-    // Engagement chart
-    const labels = engagement.map(e => e.time);
-    const scores = engagement.map(e => e.score);
-    if(!chart){
-      const ctx = document.getElementById("engagementChart").getContext("2d");
-      chart = new Chart(ctx, {
-        type: "line",
-        data: {
-          labels: labels,
-          datasets: [{
-            data: scores,
-            borderColor: "#4FD1C5",
-            backgroundColor: "rgba(79,209,197,0.12)",
-            fill: true,
-            tension: 0.35,
-            pointRadius: 0,
-            borderWidth: 2
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: { legend: { display: false } },
-          scales: {
-            x: { ticks: { color: "#8996A8", font: { family: "JetBrains Mono", size: 10 }, maxTicksLimit: 6 }, grid: { color: "#262F3D" } },
-            y: { min: 0, max: 100, ticks: { color: "#8996A8", font: { family: "JetBrains Mono", size: 10 } }, grid: { color: "#262F3D" } }
-          }
+    function flashRowFor(studentName) {
+      const rows = document.querySelectorAll("#attendanceWrap tbody tr");
+      rows.forEach(r => {
+        if (r.children[1] && r.children[1].textContent === studentName) {
+          r.classList.remove("row-flash");
+          void r.offsetWidth; // restart animation
+          r.classList.add("row-flash");
         }
       });
-    }else{
-      chart.data.labels = labels;
-      chart.data.datasets[0].data = scores;
-      chart.update();
     }
 
-    setLive(true);
-  }catch(e){
-    setLive(false, true);
-  }
+    function showToast(type, message, time) {
+      const stack = document.getElementById("toastStack");
+      const toast = document.createElement("div");
+      toast.className = `toast ${type}`;
+      toast.innerHTML = `${ICONS[type] || ""}<div>${message}<div style="color:var(--text-mute);font-size:11px;margin-top:2px">${time}</div></div>`;
+      stack.appendChild(toast);
+      setTimeout(() => toast.remove(), 4200);
+    }
+
+    async function refreshDashboard() {
+      if (!currentSession) return;
+
+      try {
+        const [summary, students, alerts, engagement] = await Promise.all([
+          fetchJSON(`/api/summary/${currentSession}`),
+          fetchJSON(`/api/student-summary/${currentSession}`),
+          fetchJSON(`/api/alerts/${currentSession}`),
+          fetchJSON(`/api/engagement/${currentSession}`)
+        ]);
+
+        animateValue(document.getElementById("cardMarked"), summary.total_marked);
+        animateValue(document.getElementById("cardPhone"), summary.phone_alerts);
+        animateValue(document.getElementById("cardDrowsy"), summary.drowsy_alerts);
+        animateValue(document.getElementById("cardEngagement"), summary.avg_engagement, "%");
+        document.getElementById("syncTime").textContent = new Date().toLocaleTimeString();
+
+        latestStudents = students;
+        renderStudentTable();
+
+        // Alerts feed (merged, most recent first)
+        const merged = [
+          ...alerts.phone.map(a => ({ ...a, type: "phone" })),
+          ...alerts.drowsy.map(a => ({ ...a, type: "drowsy" }))
+        ].sort((a, b) => (a.time < b.time ? 1 : -1)).slice(0, 20);
+
+        const alertsWrap = document.getElementById("alertsWrap");
+
+        if (merged.length === 0) {
+          alertsWrap.innerHTML = `<div class="empty">No alerts yet.</div>`;
+        } else {
+          alertsWrap.innerHTML = merged.map(a => {
+
+            const student = a.student_name
+              ? ` — ${a.student_name}`
+              : " — Unidentified";
+
+            const message = a.type === "phone"
+              ? `Phone detected${student}`
+              : a.student_name
+                ? `${a.student_name} is drowsy`
+                : "Drowsiness detected — Unidentified";
+
+            return `
+      <div class="alert-row">
+        <div class="alert-icon ${a.type}">
+          ${ICONS[a.type] || ""}
+        </div>
+
+        <div>
+          <div style="font-weight:600;">${message}</div>
+          <div style="font-size:11px;color:var(--text-mute);margin-top:2px;">
+            ${a.type === "phone" ? "Phone-use alert" : "Drowsiness alert"}
+          </div>
+        </div>
+
+        <div class="alert-time">${a.time}</div>
+      </div>
+    `;
+          }).join("");
+        }
+      firstAlertsLoad = false;
+
+      // Engagement chart
+      const labels = engagement.map(e => e.time);
+      const scores = engagement.map(e => e.score);
+      if (!chart) {
+        const ctx = document.getElementById("engagementChart").getContext("2d");
+        chart = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: labels,
+            datasets: [{
+              data: scores,
+              borderColor: "#4FD1C5",
+              backgroundColor: "rgba(79,209,197,0.12)",
+              fill: true,
+              tension: 0.35,
+              pointRadius: 0,
+              borderWidth: 2
+            }]
+          },
+          options: {
+            responsive: true,
+            animation: { duration: 400 },
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { ticks: { color: "#8996A8", font: { family: "JetBrains Mono", size: 10 }, maxTicksLimit: 6 }, grid: { color: "#262F3D" } },
+              y: { min: 0, max: 100, ticks: { color: "#8996A8", font: { family: "JetBrains Mono", size: 10 } }, grid: { color: "#262F3D" } }
+            }
+          }
+        });
+      } else {
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = scores;
+        chart.update();
+      }
+
+      setLive(true);
+    }catch (e) {
+      setLive(false, true);
+    }
 }
 
-document.getElementById("sessionSelect").addEventListener("change", (e) => {
-  currentSession = e.target.value;
-  chart = null; // rebuild chart for the newly selected session
-  refreshDashboard();
-});
+    document.getElementById("sessionSelect").addEventListener("change", (e) => {
+      currentSession = e.target.value;
+      chart = null; // rebuild chart for the newly selected session
+      seenAlertKeys = new Set();
+      firstAlertsLoad = true;
+      refreshDashboard();
+    });
 
-function downloadReport(){
-  if(!currentSession) return;
-  window.location.href = `/api/report/${currentSession}/pdf`;
-}
+    document.getElementById("studentSearch").addEventListener("input", (e) => {
+      studentFilter = e.target.value.trim().toLowerCase();
+      renderStudentTable();
+    });
 
-async function tick(){
-  await loadSessions();
-  await refreshDashboard();
-}
+    function downloadReport() {
+      if (!currentSession) return;
+      window.location.href = `/api/report/${currentSession}/pdf`;
+    }
 
-tick();
-setInterval(tick, 4000);
-</script>
+    async function tick() {
+      await loadSessions();
+      await refreshDashboard();
+    }
+
+    tick();
+    setInterval(tick, 4000);
+  </script>
 
 </body>
+
 </html>

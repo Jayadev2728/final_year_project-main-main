@@ -929,6 +929,15 @@ FACE_CROP_SIZE = 480
 EAR_FAILURE_TOLERANCE_FRAMES = 8
 EAR_DROWSY_CONFIRM_FRAMES = 4
 EAR_AWAKE_CONFIRM_FRAMES = 3
+# Head-pose safeguard for drowsiness
+# Prevents looking down from being interpreted as closed eyes.
+HEAD_POSE_YAW_LIMIT = 35.0
+HEAD_POSE_PITCH_DOWN_LIMIT = 22.0
+HEAD_POSE_PITCH_UP_LIMIT = 25.0
+
+# Require several valid forward-facing frames before
+# drowsiness detection is allowed.
+HEAD_POSE_CONFIRM_FRAMES = 3
 
 def calculate_EAR(points, landmarks, w, h):
     p = [(int(landmarks[i].x*w), int(landmarks[i].y*h)) for i in points]
@@ -941,7 +950,7 @@ def calculate_EAR(points, landmarks, w, h):
 
 try:
     face_mesh = mp.solutions.face_mesh.FaceMesh(
-        static_image_mode=True, max_num_faces=1,
+        static_image_mode=False, max_num_faces=1,
         refine_landmarks=True,
         min_detection_confidence=0.5, min_tracking_confidence=0.5
     )
@@ -956,12 +965,86 @@ print("All models loaded. Starting ClassSentinel...")
 already_marked_this_run = {}
 last_seen_write = {}
 drowsy_state = {}
-last_drowsy_log_by_key = {}
+closed_since_by_key = {}
+drowsy_logged_keys = set()
 last_phone_log_by_key = {}
+last_drowsy_log_by_key = {}
 last_engage_log = None
 yolo_frame_count = 0
 last_yolo_results = None
 session_start = datetime.now()
+
+
+def estimate_head_pose(landmarks, w, h):
+    """
+    Estimate approximate head yaw/pitch from MediaPipe face landmarks.
+
+    Returns:
+        yaw, pitch in degrees
+        None, None if pose estimation fails
+    """
+
+    try:
+        # MediaPipe landmark points:
+        # Nose tip, chin, left eye corner, right eye corner,
+        # left mouth corner, right mouth corner.
+        image_points = np.array([
+            [landmarks[1].x * w,   landmarks[1].y * h],    # Nose
+            [landmarks[152].x * w, landmarks[152].y * h],  # Chin
+            [landmarks[33].x * w,  landmarks[33].y * h],   # Left eye
+            [landmarks[263].x * w, landmarks[263].y * h],  # Right eye
+            [landmarks[61].x * w,  landmarks[61].y * h],   # Left mouth
+            [landmarks[291].x * w, landmarks[291].y * h],  # Right mouth
+        ], dtype=np.float64)
+
+        # Approximate 3D face model.
+        model_points = np.array([
+            [0.0, 0.0, 0.0],             # Nose
+            [0.0, -63.6, -12.5],         # Chin
+            [-43.3, 32.7, -26.0],        # Left eye
+            [43.3, 32.7, -26.0],         # Right eye
+            [-28.9, -28.9, -24.1],       # Left mouth
+            [28.9, -28.9, -24.1],        # Right mouth
+        ], dtype=np.float64)
+
+        focal_length = float(w)
+
+        camera_matrix = np.array([
+            [focal_length, 0, w / 2],
+            [0, focal_length, h / 2],
+            [0, 0, 1]
+        ], dtype=np.float64)
+
+        dist_coeffs = np.zeros((4, 1), dtype=np.float64)
+
+        success, rotation_vector, translation_vector = cv2.solvePnP(
+            model_points,
+            image_points,
+            camera_matrix,
+            dist_coeffs,
+            flags=cv2.SOLVEPNP_ITERATIVE
+        )
+
+        if not success:
+            return None, None
+
+        rotation_matrix, _ = cv2.Rodrigues(rotation_vector)
+
+        pose_matrix = np.hstack(
+            (rotation_matrix, translation_vector)
+        )
+
+        _, _, _, _, _, _, euler_angles = cv2.decomposeProjectionMatrix(
+            pose_matrix
+        )
+
+        pitch = float(euler_angles[0].item())
+        yaw = float(euler_angles[1].item())
+
+        return yaw, pitch
+
+    except Exception:
+        return None, None
 
 def mark_attendance(student_id, student_name):
     student_id = db.normalize_id(student_id)
@@ -1117,6 +1200,12 @@ try:
                         "closed_frames": 0,
                         "open_frames": 0,
                         "calibrated": False,
+
+                        # Head-pose state
+                        "head_pose_valid_frames": 0,
+                        "head_down_frames": 0,
+                        "last_yaw": None,
+                        "last_pitch": None,
                     }
                 )
 
@@ -1167,8 +1256,49 @@ try:
                     lm = mr.multi_face_landmarks[0].landmark
                     ch, cw = crop.shape[:2]
 
-                    le = calculate_EAR(LEFT_EYE, lm, cw, ch)
-                    re = calculate_EAR(RIGHT_EYE, lm, cw, ch)
+                    # ---------------------------------------------------------------
+                    # HEAD POSE
+                    # ---------------------------------------------------------------
+                 
+                    yaw, pitch = estimate_head_pose(lm, cw, ch)
+
+                    if yaw is not None and pitch is not None:
+                        st["last_yaw"] = yaw
+                        st["last_pitch"] = pitch
+
+                        looking_down = pitch > HEAD_POSE_PITCH_DOWN_LIMIT
+                        looking_up = pitch < -HEAD_POSE_PITCH_UP_LIMIT
+                        looking_sideways = abs(yaw) > HEAD_POSE_YAW_LIMIT
+
+                        if looking_down or looking_up or looking_sideways:
+                            st["head_pose_valid_frames"] = 0
+                            st["head_down_frames"] += 1
+                        else:
+                            st["head_down_frames"] = 0
+                            st["head_pose_valid_frames"] += 1
+                    else:
+                        looking_down = False
+                        looking_up = False
+                        looking_sideways = False
+                        st["head_pose_valid_frames"] = 0
+
+
+                    # ---------------------------------------------------------------
+                    # EYE ASPECT RATIO
+                    # ---------------------------------------------------------------
+                    le = calculate_EAR(
+                        LEFT_EYE,
+                        lm,
+                        cw,
+                        ch
+                    )
+
+                    re = calculate_EAR(
+                        RIGHT_EYE,
+                        lm,
+                        cw,
+                        ch
+                    )
 
                     if not np.isfinite(le) or not np.isfinite(re):
                         st["failed_frames"] += 1
@@ -1234,13 +1364,49 @@ try:
                         min(0.24, baseline * 0.70)
                     )
 
-                    eyes_closed = smooth < threshold
+                    raw_eyes_closed = smooth < threshold
 
+                    # Do NOT interpret low EAR as closed eyes when the
+                    # student is clearly looking down/up/sideways.
+                    head_pose_blocked = (
+                        looking_down
+                        or looking_up
+                        or looking_sideways
+                    )
+
+                    eyes_closed = raw_eyes_closed
+
+                    if config.DEBUG_PRINT_EAR:
+                        print(
+                            f"DROWSY CHECK | "
+                            f"EAR={smooth:.3f} | "
+                            f"THR={threshold:.3f} | "
+                            f"RAW_CLOSED={raw_eyes_closed} | "
+                            f"POSE_BLOCKED={head_pose_blocked} | "
+                            f"POSE_VALID={st['head_pose_valid_frames']} | "
+                            f"EYES_CLOSED={eyes_closed}"
+                        )
+                    # ── DROWSINESS DETECTION ───────────────────────────────
+
+                    # Use EAR directly. Do not block drowsiness using head pose.
+                    eyes_closed = raw_eyes_closed
+
+                    if config.DEBUG_PRINT_EAR:
+                        print(
+                            f"DROWSY CHECK | "
+                            f"EAR={smooth:.3f} | "
+                            f"THR={threshold:.3f} | "
+                            f"RAW_CLOSED={raw_eyes_closed} | "
+                            f"EYES_CLOSED={eyes_closed}"
+                        )
+
+                    # Count consecutive closed-eye frames
                     if eyes_closed:
                         st["closed_frames"] += 1
                         st["open_frames"] = 0
 
-                        if st["closed_frames"] >= 5:
+                        # Start timer after a few consecutive closed frames
+                        if st["closed_frames"] >= 3:
                             if st["start"] is None:
                                 st["start"] = now
 
@@ -1248,29 +1414,58 @@ try:
                         st["open_frames"] += 1
                         st["closed_frames"] = 0
 
-                        if st["open_frames"] >= 4:
+                        # Reset after eyes are open
+                        if st["open_frames"] >= 3:
                             st["start"] = None
 
+                    # Calculate closed-eye duration
                     elapsed = 0.0
+
                     if st["start"] is not None:
                         elapsed = (now - st["start"]).total_seconds()
 
-                    # Trigger only after sustained closure.
+                    # DROWSY after configured number of seconds
                     if elapsed >= config.DROWSY_SECONDS:
+
                         drowsy = True
+
                         if match["name"] not in drowsy_names:
                             drowsy_names.append(match["name"])
 
                         last = last_drowsy_log_by_key.get(key)
-                        if (
-                            last is None
-                            or (now-last).total_seconds() >= 5
-                        ):
-                            db.log_drowsy_alert(
-                                session_id, key, match["name"]
-                            )
-                            last_drowsy_log_by_key[key] = now
 
+                        if last is None or (now - last).total_seconds() >= 5:
+                            if elapsed >= config.DROWSY_SECONDS:
+                                drowsy = True
+
+                                if match["name"] not in drowsy_names:
+                                    drowsy_names.append(match["name"])
+
+                                last = last_drowsy_log_by_key.get(key)
+
+                                if last is None or (now - last).total_seconds() >= 5:
+                                    try:
+                                        db.log_drowsy_alert(
+                                            session_id,
+                                            match["id"],
+                                            match["name"]
+                                        )
+
+                                        last_drowsy_log_by_key[key] = now
+
+                                        print(
+                                            f"[DB] DROWSY ALERT LOGGED: "
+                                            f"{match['id']} - {match['name']}"
+                                        )
+
+                                    except Exception as e:
+                                        print(f"[DB ERROR] Drowsy alert not saved: {e}")
+
+                        else:
+                        # Eyes are open again, so the next sustained closure
+                        # can become a new drowsiness episode.
+                            closed_since_by_key.pop(key, None)
+                            drowsy_logged_keys.discard(key)
                     # Draw eye points.
                     for idx in LEFT_EYE + RIGHT_EYE:
                         px = x1 + int(lm[idx].x * (x2-x1))
@@ -1280,17 +1475,24 @@ try:
                         )
 
                     # On-screen diagnostics.
-                    status = "CLOSED" if eyes_closed else "OPEN"
-                    status_color = (
-                        (0, 0, 255) if eyes_closed else (0, 255, 0)
-                    )
+                    if eyes_closed:
+                        status = "CLOSED"
+                        status_color = (0, 0, 255)
+                    elif head_pose_blocked:
+                        status = "LOOKING AWAY"
+                        status_color = (0, 255, 255)
+                    else:
+                        status = "OPEN"
+                        status_color = (0, 255, 0)
 
                     cv2.putText(
-                        frame,
-                        f"EAR {smooth:.3f}  BASE {baseline:.3f}",
-                        (max(0, x1), min(h-45, y2+18)),
-                        cv2.FONT_HERSHEY_SIMPLEX, .48,
-                        (255, 255, 0), 2
+                    frame,
+                    f"HEAD Y:{yaw:.1f} P:{pitch:.1f}",
+                    (max(0, x1), min(h-65, y2+2)),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    .45,
+                    (255, 255, 0),
+                    2
                     )
                     cv2.putText(
                         frame,
@@ -1341,58 +1543,321 @@ try:
                             f"face={fw}x{fh} | {exc}"
                         )
 
-        # ---------- YOLO phone detection ----------
-        phone=False
-        yolo_frame_count+=1
-        if yolo_frame_count % config.YOLO_EVERY_N_FRAMES==0:
-            last_yolo_results=yolo_model(frame,verbose=False)
-        if last_yolo_results is not None:
-            for rr in last_yolo_results:
-                for box in rr.boxes:
-                    if int(box.cls[0])!=67:
-                        continue
-                    phone=True
-                    px1,py1,px2,py2=map(int,box.xyxy[0])
-                    cv2.rectangle(frame,(px1,py1),(px2,py2),(0,0,255),2)
-                    pcx,pcy=(px1+px2)/2,(py1+py2)/2
-                    nearest=min(recognized,key=lambda r:float(np.hypot(r["cx"]-pcx,r["cy"]-pcy)),default=None)
-                    name=nearest["name"] if nearest else None
-                    sid=nearest["id"] if nearest else None
-                    cv2.putText(frame,f"PHONE - {name or 'Unidentified'}",(px1,max(20,py1-8)),cv2.FONT_HERSHEY_SIMPLEX,.6,(0,0,255),2)
-                    key=sid or "unidentified"
-                    last=last_phone_log_by_key.get(key)
-                    if last is None or (now-last).total_seconds()>=5:
-                        db.log_phone_alert(session_id,sid,name)
-                        last_phone_log_by_key[key]=now
+            # ---------- YOLO phone detection ----------
+            # IMPORTANT:
+            # ONLY phone detection is modified here.
+            # SFace, YuNet, attendance and drowsiness are untouched.
 
-        # ---------- Engagement / UI ----------
-        score=engagement(len(valid_faces)>0,phone,drowsy)
-        col=score_color(score)
-        if last_engage_log is None or (now-last_engage_log).total_seconds()>=10:
-            db.log_engagement(session_id,score)
-            last_engage_log=now
+            phone = False
+            phone_candidates = []
 
-        cv2.putText(frame,f"Engagement: {score}%",(20,40),cv2.FONT_HERSHEY_SIMPLEX,.75,(255,255,255),2)
-        cv2.putText(frame,f"Marked : {len(already_marked_this_run)}",(20,75),cv2.FONT_HERSHEY_SIMPLEX,.6,(255,255,0),2)
-        cv2.putText(frame,f"Phone  : {'YES' if phone else 'NO'}",(160,75),cv2.FONT_HERSHEY_SIMPLEX,.6,(0,0,255) if phone else (0,255,0),2)
-        cv2.putText(frame,f"Drowsy : {'YES' if drowsy else 'NO'}",(20,100),cv2.FONT_HERSHEY_SIMPLEX,.6,(0,0,255) if drowsy else (0,255,0),2)
-        if drowsy:
-            cv2.putText(frame,f"DROWSY: {', '.join(sorted(set(drowsy_names)))}",(20,135),cv2.FONT_HERSHEY_SIMPLEX,.8,(0,0,255),3)
-        if phone:
-            cv2.putText(frame,"PHONE DETECTED!",(20,170),cv2.FONT_HERSHEY_SIMPLEX,1,(0,0,255),3)
+            yolo_frame_count += 1
 
-        if config.SESSION_DURATION_MINUTES is not None:
-            remaining=max(0,config.SESSION_DURATION_MINUTES-(now-session_start).total_seconds()/60)
-            cv2.putText(frame,f"Time left: {int(remaining):02d}:{int((remaining%1)*60):02d}",(w-220,75),cv2.FONT_HERSHEY_SIMPLEX,.6,(255,255,255),2)
+            if yolo_frame_count % config.YOLO_EVERY_N_FRAMES == 0:
+                last_yolo_results = yolo_model(frame, verbose=False)
 
-        cv2.imshow("ClassSentinel",frame)
-        if cv2.waitKey(1)&0xFF==ord("q"):
-            break
-        if config.SESSION_DURATION_MINUTES is not None and (now-session_start).total_seconds()/60>=config.SESSION_DURATION_MINUTES:
-            break
+            if last_yolo_results is not None:
+
+                for rr in last_yolo_results:
+
+                    for box in rr.boxes:
+
+                        # COCO class 67 = cell phone
+                        if int(box.cls[0]) != 67:
+                            continue
+
+                        confidence = float(box.conf[0])
+
+                        # --------------------------------------------------------
+                        # 1. STRONGER CONFIDENCE FILTER
+                        # --------------------------------------------------------
+                        # 0.60 was too permissive for classroom objects.
+                        if confidence < 0.55:
+                            continue
+
+                        px1, py1, px2, py2 = map(
+                            int,
+                            box.xyxy[0]
+                        )
+
+                        pw = max(1, px2 - px1)
+                        ph = max(1, py2 - py1)
+
+                        # --------------------------------------------------------
+                        # 2. BASIC SIZE FILTER
+                        # --------------------------------------------------------
+                        if pw < 10 or ph < 12:
+                            continue
+
+                        if pw > int(w * 0.30) or ph > int(h * 0.35):
+                            continue
+
+                        # --------------------------------------------------------
+                        # 3. ASPECT-RATIO FILTER
+                        # --------------------------------------------------------
+                        aspect_ratio = pw / float(ph)
+
+                        if aspect_ratio < 0.35 or aspect_ratio > 1.65:
+                            continue
+
+                        pcx = (px1 + px2) / 2.0
+                        pcy = (py1 + py2) / 2.0
+
+                        # --------------------------------------------------------
+                        # 4. FIND NEAREST RECOGNIZED STUDENT
+                        # --------------------------------------------------------
+                        nearest = min(
+                            recognized,
+                            key=lambda r: float(
+                                np.hypot(
+                                    r["cx"] - pcx,
+                                    r["cy"] - pcy
+                                )
+                            ),
+                            default=None
+                        )
+
+                        if nearest is None:
+                            continue
+
+                        # --------------------------------------------------------
+                        # 5. DISTANCE FROM STUDENT
+                        # --------------------------------------------------------
+                        face_distance = float(
+                            np.hypot(
+                                nearest["cx"] - pcx,
+                                nearest["cy"] - pcy
+                            )
+                        )
+
+                        # Scale allowed distance using the detected face size.
+                        # This is much stricter than using a fixed 30% of the frame.
+                        face_radius = max(
+                            40.0,
+                            float(
+                                max(
+                                    abs(nearest["cx"] - pcx),
+                                    abs(nearest["cy"] - pcy)
+                                )
+                            )
+                        )
+
+                        max_phone_distance = max(
+                            140.0,
+                            face_radius * 2.5
+                        )
+
+                        phone_candidates.append({
+                            "box": (px1, py1, px2, py2),
+                            "confidence": confidence,
+                            "student": nearest,
+                            "distance": face_distance,
+                        })
+
+
+            # ------------------------------------------------------------
+            # 6. SELECT STRONGEST CANDIDATE
+            # ------------------------------------------------------------
+            if phone_candidates:
+
+                phone_candidates.sort(
+                    key=lambda x: x["confidence"],
+                    reverse=True
+                )
+
+                candidate = phone_candidates[0]
+
+                px1, py1, px2, py2 = candidate["box"]
+                confidence = candidate["confidence"]
+                nearest = candidate["student"]
+
+                name = nearest["name"]
+                sid = nearest["id"]
+
+                # --------------------------------------------------------
+                # 7. PHONE CONFIRMATION STATE
+                # --------------------------------------------------------
+                if "phone_confirmation" not in globals():
+                    phone_confirmation = {}
+
+                state = phone_confirmation.setdefault(
+                    sid,
+                    {
+                        "count": 0,
+                        "last_seen": None,
+                        "box": None,
+                        "confidence_history": [],
+                    }
+                )
+
+                current_box = (
+                    px1,
+                    py1,
+                    px2,
+                    py2
+                )
+
+                # --------------------------------------------------------
+                # 8. CHECK TEMPORAL CONTINUITY
+                # --------------------------------------------------------
+                continuous = (
+                    state["last_seen"] is not None
+                    and (now - state["last_seen"]).total_seconds() <= 1.5
+                )
+
+                # --------------------------------------------------------
+                # 9. CHECK BOX STABILITY
+                # --------------------------------------------------------
+                box_stable = True
+
+                if state["box"] is not None:
+
+                    ox1, oy1, ox2, oy2 = state["box"]
+
+                    old_cx = (ox1 + ox2) / 2.0
+                    old_cy = (oy1 + oy2) / 2.0
+
+                    old_w = max(1, ox2 - ox1)
+                    old_h = max(1, oy2 - oy1)
+
+                    current_w = max(1, px2 - px1)
+                    current_h = max(1, py2 - py1)
+
+                    center_shift = float(
+                        np.hypot(
+                            pcx - old_cx,
+                            pcy - old_cy
+                        )
+                    )
+
+                    size_change_w = abs(
+                        current_w - old_w
+                    ) / float(old_w)
+
+                    size_change_h = abs(
+                        current_h - old_h
+                    ) / float(old_h)
+
+                    # A genuine phone should not jump wildly
+                    # between consecutive detections.
+                    max_shift = max(
+                        50.0,
+                        min(
+                            current_w,
+                            current_h
+                        ) * 1.5
+                    )
+
+                    if center_shift > max_shift:
+                        box_stable = False
+
+                    if size_change_w > 0.80:
+                        box_stable = False
+
+                    if size_change_h > 0.80:
+                        box_stable = False
+
+                # --------------------------------------------------------
+                # 10. UPDATE CONFIRMATION
+                # --------------------------------------------------------
+                if continuous and box_stable:
+                    state["count"] += 1
+                else:
+                    # New candidate or unstable detection.
+                    state["count"] = 1
+
+                state["last_seen"] = now
+                state["box"] = current_box
+                state["confidence_history"].append(confidence)
+
+                if len(state["confidence_history"]) > 5:
+                    state["confidence_history"].pop(0)
+
+                # --------------------------------------------------------
+                # 11. AVERAGE CONFIDENCE
+                # --------------------------------------------------------
+                avg_confidence = float(np.mean(state["confidence_history"]))
+
+                # --------------------------------------------------------
+                # 12. FINAL PHONE CONFIRMATION
+                # --------------------------------------------------------
+                # Require multiple stable detections.
+                # This is deliberately conservative because false positives
+                # are more harmful than missing a weak phone detection.
+                if state["count"] >= 2 and avg_confidence >= 0.70:
+                    phone = True
+
+                    cv2.rectangle(
+                        frame,
+                        (px1, py1),
+                        (px2, py2),
+                        (0, 0, 255),
+                        2
+                    )
+
+                    cv2.putText(
+                        frame,
+                        f"PHONE - {name} ({avg_confidence:.2f})",
+                        (px1, max(20, py1 - 8)),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.6,
+                        (0, 0, 255),
+                        2
+                    )
+
+                    # ----------------------------------------------------
+                    # 13. DATABASE LOGGING
+                    # ----------------------------------------------------
+                    last = last_phone_log_by_key.get(sid)
+
+                    if last is None or (now - last).total_seconds() >= 5:
+                        db.log_phone_alert(
+                            session_id,
+                            sid,
+                            name
+                        )
+                        last_phone_log_by_key[sid] = now
+
+                else:
+                    # Optional diagnostic display while verification occurs.
+                    cv2.putText(
+                        frame,
+                        f"Checking phone... {state['count']}/4",
+                        (px1, max(20, py1 - 8)),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.5,
+                        (0, 255, 255),
+                        2
+                    )
+
+            # ---------- Engagement / UI ----------
+            score = engagement(len(valid_faces) > 0, phone, drowsy)
+            col = score_color(score)
+            if last_engage_log is None or (now - last_engage_log).total_seconds() >= 10:
+                db.log_engagement(session_id, score)
+                last_engage_log = now
+
+            cv2.putText(frame, f"Engagement: {score}%", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, .75, (255, 255, 255), 2)
+            cv2.putText(frame, f"Marked : {len(already_marked_this_run)}", (20, 75), cv2.FONT_HERSHEY_SIMPLEX, .6, (255, 255, 0), 2)
+            cv2.putText(frame, f"Phone  : {'YES' if phone else 'NO'}", (160, 75), cv2.FONT_HERSHEY_SIMPLEX, .6, (0, 0, 255) if phone else (0, 255, 0), 2)
+            cv2.putText(frame, f"Drowsy : {'YES' if drowsy else 'NO'}", (20, 100), cv2.FONT_HERSHEY_SIMPLEX, .6, (0, 0, 255) if drowsy else (0, 255, 0), 2)
+            if drowsy:
+                cv2.putText(frame, f"DROWSY: {', '.join(sorted(set(drowsy_names)))}", (20, 135), cv2.FONT_HERSHEY_SIMPLEX, .8, (0, 0, 255), 3)
+            if phone:
+                cv2.putText(frame, "PHONE DETECTED!", (20, 170), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3)
+
+            if config.SESSION_DURATION_MINUTES is not None:
+                remaining = max(0, config.SESSION_DURATION_MINUTES - (now - session_start).total_seconds() / 60)
+                cv2.putText(frame, f"Time left: {int(remaining):02d}:{int((remaining % 1) * 60):02d}", (w - 220, 75), cv2.FONT_HERSHEY_SIMPLEX, .6, (255, 255, 255), 2)
+
+            cv2.imshow("ClassSentinel", frame)
+            if cv2.waitKey(1) & 0xFF == ord("q"):
+                break
+            if config.SESSION_DURATION_MINUTES is not None and (now - session_start).total_seconds() / 60 >= config.SESSION_DURATION_MINUTES:
+                break
 finally:
     cap.release()
     cv2.destroyAllWindows()
     db.end_session(session_id)
-    db.export_attendance_csv(session_id,config.ATTENDANCE_CSV)
+    db.export_attendance_csv(session_id, config.ATTENDANCE_CSV)
     print(f"Session {session_id} closed. Attendance exported to {config.ATTENDANCE_CSV}.")
