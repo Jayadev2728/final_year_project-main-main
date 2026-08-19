@@ -1572,7 +1572,7 @@ try:
                         # 1. STRONGER CONFIDENCE FILTER
                         # --------------------------------------------------------
                         # 0.60 was too permissive for classroom objects.
-                        if confidence < 0.55:
+                        if confidence < 0.70:
                             continue
 
                         px1, py1, px2, py2 = map(
@@ -1586,7 +1586,7 @@ try:
                         # --------------------------------------------------------
                         # 2. BASIC SIZE FILTER
                         # --------------------------------------------------------
-                        if pw < 10 or ph < 12:
+                        if pw < 15 or ph < 20:
                             continue
 
                         if pw > int(w * 0.30) or ph > int(h * 0.35):
@@ -1646,6 +1646,9 @@ try:
                             140.0,
                             face_radius * 2.5
                         )
+
+                        if face_distance > max_phone_distance:
+                            continue
 
                         phone_candidates.append({
                             "box": (px1, py1, px2, py2),
@@ -1784,7 +1787,7 @@ try:
                 # Require multiple stable detections.
                 # This is deliberately conservative because false positives
                 # are more harmful than missing a weak phone detection.
-                if state["count"] >= 2 and avg_confidence >= 0.70:
+                if state["count"] >= 4 and avg_confidence >= 0.70:
                     phone = True
 
                     cv2.rectangle(
