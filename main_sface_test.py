@@ -116,7 +116,7 @@ def ensure_model(path: Path, url: str, minimum_bytes: int, label: str):
         with urllib.request.urlopen(request, timeout=90) as response, open(temp_path, "wb") as out:
             total = int(response.headers.get("Content-Length", "0") or 0)
             downloaded = 0
-
+            loop_t0 = time.time()
             while True:
                 chunk = response.read(1024 * 1024)
                 if not chunk:
@@ -973,6 +973,9 @@ last_engage_log = None
 yolo_frame_count = 0
 last_yolo_results = None
 session_start = datetime.now()
+last_yolo_time = 0.0
+yolo_result_fresh = False
+YOLO_INTERVAL_SECONDS = 0.35
 
 
 def estimate_head_pose(landmarks, w, h):
@@ -1110,6 +1113,7 @@ try:
             continue
         failures = 0
         frame_counter += 1
+        loop_t0 = time.time()
         h, w = frame.shape[:2]
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         now = datetime.now()
@@ -1552,9 +1556,12 @@ try:
             phone_candidates = []
 
             yolo_frame_count += 1
+            yolo_result_fresh = False
 
-            if yolo_frame_count % config.YOLO_EVERY_N_FRAMES == 0:
-                last_yolo_results = yolo_model(frame, verbose=False)
+            if time.time() - last_yolo_time >= YOLO_INTERVAL_SECONDS:
+                last_yolo_results = yolo_model(frame, imgsz=416, verbose=False)
+                last_yolo_time = time.time()
+                yolo_result_fresh = True
 
             if last_yolo_results is not None:
 
@@ -1661,7 +1668,7 @@ try:
             # ------------------------------------------------------------
             # 6. SELECT STRONGEST CANDIDATE
             # ------------------------------------------------------------
-            if phone_candidates:
+            if phone_candidates and yolo_result_fresh:
 
                 phone_candidates.sort(
                     key=lambda x: x["confidence"],
@@ -1705,7 +1712,7 @@ try:
                 # --------------------------------------------------------
                 continuous = (
                     state["last_seen"] is not None
-                    and (now - state["last_seen"]).total_seconds() <= 1.5
+                    and (now - state["last_seen"]).total_seconds() <= 2.5
                 )
 
                 # --------------------------------------------------------
@@ -1754,10 +1761,10 @@ try:
                     if center_shift > max_shift:
                         box_stable = False
 
-                    if size_change_w > 0.80:
+                    if size_change_w > 1.20:
                         box_stable = False
 
-                    if size_change_h > 0.80:
+                    if size_change_h > 1.20:
                         box_stable = False
 
                 # --------------------------------------------------------
@@ -1787,7 +1794,7 @@ try:
                 # Require multiple stable detections.
                 # This is deliberately conservative because false positives
                 # are more harmful than missing a weak phone detection.
-                if state["count"] >= 4 and avg_confidence >= 0.70:
+                if state["count"] >= 2 and avg_confidence >= 0.70:
                     phone = True
 
                     cv2.rectangle(
@@ -1852,6 +1859,12 @@ try:
             if config.SESSION_DURATION_MINUTES is not None:
                 remaining = max(0, config.SESSION_DURATION_MINUTES - (now - session_start).total_seconds() / 60)
                 cv2.putText(frame, f"Time left: {int(remaining):02d}:{int((remaining % 1) * 60):02d}", (w - 220, 75), cv2.FONT_HERSHEY_SIMPLEX, .6, (255, 255, 255), 2)
+
+            if frame_counter % 30 == 0:
+                print(f"loop time: {time.time() - loop_t0:.3f}s")
+
+            if frame_counter % 30 == 0:
+                print(f"loop time: {time.time() - loop_t0:.3f}s")
 
             cv2.imshow("ClassSentinel", frame)
             if cv2.waitKey(1) & 0xFF == ord("q"):
