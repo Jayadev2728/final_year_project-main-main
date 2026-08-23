@@ -95,7 +95,9 @@ def init_db():
             CREATE TABLE IF NOT EXISTS drowsy_alerts (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 session_id INTEGER NOT NULL,
-                time TEXT NOT NULL
+                time TEXT NOT NULL,
+                student_id TEXT,
+                student_name TEXT
             )
         """)
         cur.execute("""
@@ -297,8 +299,9 @@ def log_drowsy_alert(session_id, student_id=None, student_name=None):
 def get_phone_alerts(session_id, limit=50):
     with db_cursor() as cur:
         cur.execute(
-            "SELECT * FROM phone_alerts WHERE session_id = ? ORDER BY id DESC LIMIT ?",
-            (session_id, limit)
+            "SELECT id, session_id, time, student_id, student_name "
+            "FROM phone_alerts WHERE session_id = ? ORDER BY id DESC LIMIT ?",
+            (session_id, int(limit))
         )
         return [dict(r) for r in cur.fetchall()]
 
@@ -306,8 +309,9 @@ def get_phone_alerts(session_id, limit=50):
 def get_drowsy_alerts(session_id, limit=50):
     with db_cursor() as cur:
         cur.execute(
-            "SELECT * FROM drowsy_alerts WHERE session_id = ? ORDER BY id DESC LIMIT ?",
-            (session_id, limit)
+            "SELECT id, session_id, time, student_id, student_name "
+            "FROM drowsy_alerts WHERE session_id = ? ORDER BY id DESC LIMIT ?",
+            (session_id, int(limit))
         )
         return [dict(r) for r in cur.fetchall()]
 
