@@ -30,7 +30,7 @@ import numpy as np
 
 import config
 import database as db
-
+import voice_alerts
 
 # ================================================================
 # PATHS / MODEL SETTINGS
@@ -1471,6 +1471,11 @@ try:
                                             f"{match['id']} - {match['name']}"
                                         )
 
+                                        voice_alerts.announce(
+                                            f"drowsy_{match['id']}",
+                                            f"{match['name']} appears drowsy"
+                                        )
+
                                     except Exception as e:
                                         print(f"[DB ERROR] Drowsy alert not saved: {e}")
 
@@ -1903,9 +1908,12 @@ try:
                                 db.log_phone_alert(session_id, sid, name)
                                 last_phone_log_by_key[sid] = now
                                 print(f"[DB] PHONE ALERT LOGGED: {sid} - {name}")
+                                voice_alerts.announce(
+                                    f"phone_{sid}",
+                                    f"{name}, please put your phone away"
+                                )
                             except Exception as e:
                                 print(f"[DB ERROR] Phone alert not saved: {e}")
-
             # Number of simultaneously confirmed phones.
             phone_count = len(confirmed_phones)
 
