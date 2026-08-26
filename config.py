@@ -7,6 +7,31 @@ take_attendence.py (70) — that kind of drift is exactly what causes
 "it worked yesterday" bugs. Change values here, not inside main.py.
 """
 
+
+# ── Automated session reports ─────────────────────────────────────
+# A PDF report is ALWAYS generated automatically into reports/ when a
+# session ends. Emailing it is optional -- set EMAIL_REPORTS_ENABLED
+# to True and fill in the fields below to also send it automatically.
+# For Gmail: SMTP_SERVER="smtp.gmail.com", SMTP_PORT=587, and
+# EMAIL_SENDER_APP_PASSWORD must be a 16-character Gmail "App Password"
+# (Google Account -> Security -> 2-Step Verification -> App Passwords),
+# NOT your normal Gmail password.
+EMAIL_REPORTS_ENABLED     = True
+SMTP_SERVER               = "smtp.gmail.com"
+SMTP_PORT                 = 587
+EMAIL_SENDER_ADDRESS      = "jayadevhn27@gmail.com"
+EMAIL_SENDER_APP_PASSWORD = "rcdrfcupqzngaxop"
+REPORT_RECIPIENT_EMAIL    = "jayadevhn27@gmail.com"
+
+# ── Dashboard authentication ──────────────────────────────────────
+# Single teacher account gating the dashboard.
+# Generate TEACHER_PASSWORD_HASH once with:
+#   python -c "from werkzeug.security import generate_password_hash; print(generate_password_hash('your-password-here'))"
+# Never put the plain password here -- only the generated hash.
+TEACHER_USERNAME = "admin"
+TEACHER_PASSWORD_HASH = "scrypt:32768:8:1$HMi6YQRAaQJKBHYg$831c608ac5ae9694c2a41d284f4e5d7897946a012c61de4687cd6111a1e12fc9a2f2cb289e1f3b0147fa1c25c6b5777cae63d017ed3245c77c262016ac77d745"
+SECRET_KEY = "b5a53a80309adcb884c309ed1309bd75"
+
 # ── Camera ───────────────────────────────────────────────────────
 # 0 = laptop webcam. For Iriun (phone), use the index camera.py told you.
 CAMERA_SOURCE = 1
@@ -88,6 +113,13 @@ FACE_TRACK_MIN_AGREEMENT = 0.5     # fraction of recent history that must agree 
                                      # displaying a name — lower = switches names faster
                                      # but flickers more, higher = more stable but slower
                                      # to confirm a new person
+
+# ── At-risk flagging ─────────────────────────────────────────────
+# A student is flagged "at risk" on the dashboard once their alert
+# counts in a session reach either of these thresholds.
+AT_RISK_PHONE_THRESHOLD  = 3
+AT_RISK_DROWSY_THRESHOLD = 3
+
 
 # ── Per-student report engagement score ─────────────────────────────
 # The report's per-student Engagement column is a simple derived score,

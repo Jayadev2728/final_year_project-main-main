@@ -6,282 +6,71 @@
 <title>ClassSentinel — Live Monitor</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="/chart.umd.min.js"></script>
 <style>
-  :root{
-    --bg:        #0E1218;
-    --surface:   #161C25;
-    --surface-2: #1C2430;
-    --border:    #262F3D;
-    --teal:      #4FD1C5;
-    --amber:     #F5A623;
-    --red:       #F2545B;
-    --green:     #4ADE80;
-    --text:      #E7ECF3;
-    --text-mute: #8996A8;
-    --font-display: 'Space Grotesk', sans-serif;
-    --font-body: 'Inter', sans-serif;
-    --font-mono: 'JetBrains Mono', monospace;
-  }
-
-  *{ box-sizing:border-box; margin:0; padding:0; }
-
-  body{
-    background:var(--bg);
-    color:var(--text);
-    font-family:var(--font-body);
-    min-height:100vh;
-    padding:28px clamp(16px, 4vw, 48px) 64px;
-  }
-
-  a{ color:inherit; }
-
-  /* ── Header ─────────────────────────────────────────── */
-  header{
-    position:relative;
-    overflow:hidden;
-    background:linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%);
-    border:1px solid var(--border);
-    border-radius:14px;
-    padding:24px 28px;
-    margin-bottom:24px;
-    display:flex;
-    flex-wrap:wrap;
-    align-items:center;
-    justify-content:space-between;
-    gap:16px;
-  }
-
-  header::after{
-    content:"";
-    position:absolute;
-    top:0; left:-40%;
-    width:40%; height:100%;
-    background:linear-gradient(90deg, transparent, rgba(79,209,197,0.08), transparent);
-    animation:scan 5s linear infinite;
-  }
-
-  @keyframes scan{
-    0%   { left:-40%; }
-    100% { left:100%; }
-  }
-
-  .brand{ position:relative; z-index:1; }
-  .eyebrow{
-    font-family:var(--font-mono);
-    font-size:11px;
-    letter-spacing:0.18em;
-    color:var(--teal);
-    text-transform:uppercase;
-    margin-bottom:6px;
-  }
-  h1{
-    font-family:var(--font-display);
-    font-size:clamp(22px, 3vw, 30px);
-    font-weight:700;
-    letter-spacing:-0.01em;
-  }
-
-  .status-cluster{
-    position:relative; z-index:1;
-    display:flex;
-    align-items:center;
-    gap:18px;
-    flex-wrap:wrap;
-  }
-
-  .live-pill{
-    display:flex; align-items:center; gap:8px;
-    font-family:var(--font-mono);
-    font-size:12px;
-    letter-spacing:0.06em;
-    color:var(--text-mute);
-    background:var(--surface-2);
-    border:1px solid var(--border);
-    padding:7px 12px;
-    border-radius:100px;
-  }
-  .dot{
-    width:8px; height:8px; border-radius:50%;
-    background:var(--text-mute);
-  }
-  .dot.on{
-    background:var(--green);
-    box-shadow:0 0 0 0 rgba(74,222,128,0.6);
-    animation:pulse 1.6s infinite;
-  }
-  @keyframes pulse{
-    0%   { box-shadow:0 0 0 0 rgba(74,222,128,0.55); }
-    70%  { box-shadow:0 0 0 8px rgba(74,222,128,0); }
-    100% { box-shadow:0 0 0 0 rgba(74,222,128,0); }
-  }
-
-  select{
-    font-family:var(--font-mono);
-    font-size:12px;
-    background:var(--surface-2);
-    color:var(--text);
-    border:1px solid var(--border);
-    border-radius:8px;
-    padding:8px 12px;
-    outline:none;
-  }
-
-  .dl-btn{
-    display:flex; align-items:center; gap:6px;
-    font-family:var(--font-mono);
-    font-size:12px;
-    background:var(--teal);
-    color:#0E1218;
-    border:none;
-    border-radius:8px;
-    padding:8px 14px;
-    font-weight:600;
-    cursor:pointer;
-    transition:opacity 0.15s;
-  }
-  .dl-btn:hover{ opacity:0.85; }
-  .dl-btn:disabled{
-    background:var(--surface-2);
-    color:var(--text-mute);
-    cursor:not-allowed;
-  }
-
-  /* ── Summary cards ──────────────────────────────────── */
-  .cards{
-    display:grid;
-    grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
-    gap:14px;
-    margin-bottom:24px;
-  }
-  .card{
-    background:var(--surface);
-    border:1px solid var(--border);
-    border-radius:12px;
-    padding:18px 20px;
-  }
-  .card .label{
-    font-family:var(--font-mono);
-    font-size:11px;
-    letter-spacing:0.1em;
-    text-transform:uppercase;
-    color:var(--text-mute);
-    margin-bottom:10px;
-  }
-  .card .value{
-    font-family:var(--font-display);
-    font-size:32px;
-    font-weight:700;
-  }
-  .card.accent-teal  .value{ color:var(--teal); }
-  .card.accent-amber .value{ color:var(--amber); }
-  .card.accent-red   .value{ color:var(--red); }
-  .card.accent-green .value{ color:var(--green); }
-
-  /* ── Main grid ──────────────────────────────────────── */
-  .grid{
-    display:grid;
-    grid-template-columns:1.3fr 1fr;
-    gap:18px;
-  }
-  @media(max-width:900px){
-    .grid{ grid-template-columns:1fr; }
-  }
-
-  .panel{
-    background:var(--surface);
-    border:1px solid var(--border);
-    border-radius:12px;
-    padding:20px;
-    margin-bottom:18px;
-  }
-  .panel h2{
-    font-family:var(--font-display);
-    font-size:15px;
-    font-weight:600;
-    margin-bottom:14px;
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-  }
-  .panel h2 span.count{
-    font-family:var(--font-mono);
-    font-size:12px;
-    color:var(--text-mute);
-    font-weight:400;
-  }
-
-  table{ width:100%; border-collapse:collapse; }
-  th{
-    text-align:left;
-    font-family:var(--font-mono);
-    font-size:10px;
-    letter-spacing:0.08em;
-    text-transform:uppercase;
-    color:var(--text-mute);
-    padding:8px 6px;
-    border-bottom:1px solid var(--border);
-  }
-  td{
-    font-size:13px;
-    padding:10px 6px;
-    border-bottom:1px solid rgba(38,47,61,0.5);
-    font-family:var(--font-mono);
-  }
-  tr:last-child td{ border-bottom:none; }
-  .status-tag{
-    font-family:var(--font-mono);
-    font-size:11px;
-    padding:2px 8px;
-    border-radius:100px;
-    display:inline-block;
-  }
-  .status-tag.ontime{ background:rgba(74,222,128,0.12); color:var(--green); }
-  .status-tag.late{ background:rgba(245,166,35,0.12); color:var(--amber); }
-  .status-tag.notmarked{ background:rgba(137,150,168,0.12); color:var(--text-mute); }
-
-  .empty{
-    color:var(--text-mute);
-    font-size:13px;
-    padding:24px 4px;
-    text-align:center;
-  }
-
-  .alert-row{
-    display:flex;
-    align-items:center;
-    gap:10px;
-    padding:9px 4px;
-    border-bottom:1px solid rgba(38,47,61,0.5);
-    font-size:13px;
-  }
-  .alert-row:last-child{ border-bottom:none; }
-  .alert-icon{
-    width:26px; height:26px;
-    border-radius:7px;
-    display:flex; align-items:center; justify-content:center;
-    font-size:13px;
-    flex-shrink:0;
-  }
-  .alert-icon.phone{ background:rgba(242,84,91,0.14); }
-  .alert-icon.drowsy{ background:rgba(245,166,35,0.14); }
-  .alert-time{
-    font-family:var(--font-mono);
-    color:var(--text-mute);
-    margin-left:auto;
-    font-size:12px;
-  }
-
-  canvas{ max-height:220px; }
-
-  footer{
-    text-align:center;
-    color:var(--text-mute);
-    font-family:var(--font-mono);
-    font-size:11px;
-    margin-top:32px;
-    letter-spacing:0.05em;
-  }
+:root{--bg:#0E1218;--surface:#161C25;--surface-2:#1C2430;--border:#262F3D;--teal:#4FD1C5;--amber:#F5A623;--red:#F2545B;--green:#4ADE80;--text:#E7ECF3;--text-mute:#8996A8;--font-display:'Space Grotesk',sans-serif;--font-body:'Inter',sans-serif;--font-mono:'JetBrains Mono',monospace;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--font-body);min-height:100vh;padding:28px clamp(16px,4vw,48px) 64px;}
+a{color:inherit;}
+header{position:relative;overflow:hidden;background:linear-gradient(180deg,var(--surface) 0%,var(--bg) 100%);border:1px solid var(--border);border-radius:14px;padding:24px 28px;margin-bottom:24px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;}
+header::after{content:"";position:absolute;top:0;left:-40%;width:40%;height:100%;background:linear-gradient(90deg,transparent,rgba(79,209,197,0.08),transparent);animation:scan 5s linear infinite;}
+@keyframes scan{0%{left:-40%;}100%{left:100%;}}
+.brand{position:relative;z-index:1;}
+.eyebrow{font-family:var(--font-mono);font-size:11px;letter-spacing:0.18em;color:var(--teal);text-transform:uppercase;margin-bottom:6px;}
+h1{font-family:var(--font-display);font-size:clamp(22px,3vw,30px);font-weight:700;letter-spacing:-0.01em;}
+.status-cluster{position:relative;z-index:1;display:flex;align-items:center;gap:18px;flex-wrap:wrap;}
+.live-pill{display:flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:12px;letter-spacing:0.06em;color:var(--text-mute);background:var(--surface-2);border:1px solid var(--border);padding:7px 12px;border-radius:100px;}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--text-mute);}
+.dot.on{background:var(--green);box-shadow:0 0 0 0 rgba(74,222,128,0.6);animation:pulse 1.6s infinite;}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(74,222,128,0.55);}70%{box-shadow:0 0 0 8px rgba(74,222,128,0);}100%{box-shadow:0 0 0 0 rgba(74,222,128,0);}}
+select{font-family:var(--font-mono);font-size:12px;background:var(--surface-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 12px;outline:none;}
+.dl-btn{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:12px;background:var(--teal);color:#0E1218;border:none;border-radius:8px;padding:8px 14px;font-weight:600;cursor:pointer;transition:opacity 0.15s;}
+.dl-btn:hover{opacity:0.85;}
+.dl-btn:disabled{background:var(--surface-2);color:var(--text-mute);cursor:not-allowed;}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:24px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 20px;}
+.card .label{font-family:var(--font-mono);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-mute);margin-bottom:10px;}
+.card .value{font-family:var(--font-display);font-size:32px;font-weight:700;}
+.card.accent-teal .value{color:var(--teal);}
+.card.accent-amber .value{color:var(--amber);}
+.card.accent-red .value{color:var(--red);}
+.card.accent-green .value{color:var(--green);}
+.grid{display:grid;grid-template-columns:1.3fr 1fr;gap:18px;}
+@media(max-width:900px){.grid{grid-template-columns:1fr;}}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:18px;}
+.panel h2{font-family:var(--font-display);font-size:15px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;}
+.panel h2 span.count{font-family:var(--font-mono);font-size:12px;color:var(--text-mute);font-weight:400;}
+table{width:100%;border-collapse:collapse;}
+th{text-align:left;font-family:var(--font-mono);font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-mute);padding:8px 6px;border-bottom:1px solid var(--border);}
+td{font-size:13px;padding:10px 6px;border-bottom:1px solid rgba(38,47,61,0.5);font-family:var(--font-mono);}
+tr:last-child td{border-bottom:none;}
+.status-tag{font-family:var(--font-mono);font-size:11px;padding:2px 8px;border-radius:100px;display:inline-block;}
+.status-tag.ontime{background:rgba(74,222,128,0.12);color:var(--green);}
+.status-tag.late{background:rgba(245,166,35,0.12);color:var(--amber);}
+.status-tag.notmarked{background:rgba(137,150,168,0.12);color:var(--text-mute);}
+tr.at-risk-row td{background:rgba(242,84,91,0.05);}
+.risk-badge{font-family:var(--font-mono);font-size:9px;background:rgba(242,84,91,0.16);color:var(--red);padding:2px 6px;border-radius:100px;letter-spacing:.05em;margin-left:5px;vertical-align:middle;}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:1000;padding:24px;}
+.modal-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px 28px;max-width:640px;width:100%;max-height:80vh;overflow-y:auto;position:relative;}
+.modal-close{position:absolute;top:16px;right:16px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-mute);border-radius:8px;width:28px;height:28px;cursor:pointer;font-size:13px;}
+.profile-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin:16px 0 20px;}
+.profile-stat{background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;}
+.profile-stat .label{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;color:var(--text-mute);margin-bottom:4px;}
+.profile-stat .value{font-family:var(--font-display);font-size:20px;font-weight:700;}
+a.student-link{color:var(--text);text-decoration:none;border-bottom:1px dashed var(--text-mute);cursor:pointer;}
+a.student-link:hover{color:var(--teal);border-bottom-color:var(--teal);}
+.empty{color:var(--text-mute);font-size:13px;padding:24px 4px;text-align:center;}
+.alert-row{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid rgba(38,47,61,0.5);font-size:13px;}
+.alert-row:last-child{border-bottom:none;}
+.alert-icon{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.alert-icon.phone{background:rgba(242,84,91,0.14);}
+.alert-icon.drowsy{background:rgba(245,166,35,0.14);}
+.alert-time{font-family:var(--font-mono);color:var(--text-mute);margin-left:auto;font-size:12px;}
+canvas{max-height:220px;}
+.heatmap-strip{display:flex;gap:3px;margin-top:14px;}
+.heatmap-block{flex:1;height:28px;border-radius:4px;transition:transform .1s;}
+.heatmap-block:hover{transform:scaleY(1.15);}
+footer{text-align:center;color:var(--text-mute);font-family:var(--font-mono);font-size:11px;margin-top:32px;letter-spacing:0.05em;}
 </style>
 </head>
 <body>
@@ -295,26 +84,15 @@
     <div class="live-pill"><span class="dot" id="liveDot"></span><span id="liveLabel">CONNECTING</span></div>
     <select id="sessionSelect"></select>
     <button class="dl-btn" id="downloadBtn" onclick="downloadReport()">⬇ Download Report</button>
+    <button class="dl-btn" id="logoutBtn" onclick="logout()" style="background:var(--surface-2);color:var(--text-mute);">Logout</button>
   </div>
 </header>
 
 <div class="cards">
-  <div class="card accent-teal">
-    <div class="label">Students Present</div>
-    <div class="value" id="cardMarked">—</div>
-  </div>
-  <div class="card accent-red">
-    <div class="label">Phone Alerts</div>
-    <div class="value" id="cardPhone">—</div>
-  </div>
-  <div class="card accent-amber">
-    <div class="label">Drowsy Alerts</div>
-    <div class="value" id="cardDrowsy">—</div>
-  </div>
-  <div class="card accent-green">
-    <div class="label">Avg Engagement</div>
-    <div class="value" id="cardEngagement">—</div>
-  </div>
+  <div class="card accent-teal"><div class="label">Students Present</div><div class="value" id="cardMarked">—</div></div>
+  <div class="card accent-red"><div class="label">Phone Alerts</div><div class="value" id="cardPhone">—</div></div>
+  <div class="card accent-amber"><div class="label">Drowsy Alerts</div><div class="value" id="cardDrowsy">—</div></div>
+  <div class="card accent-green"><div class="label">Avg Engagement</div><div class="value" id="cardEngagement">—</div></div>
 </div>
 
 <div class="grid">
@@ -326,9 +104,9 @@
     <div class="panel">
       <h2>Engagement Over Time</h2>
       <canvas id="engagementChart"></canvas>
+      <div class="heatmap-strip" id="engagementHeatmap"></div>
     </div>
   </div>
-
   <div>
     <div class="panel">
       <h2>Recent Alerts</h2>
@@ -337,26 +115,45 @@
   </div>
 </div>
 
-<footer>ClassSentinel · Face Recognition + YOLOv8 + MediaPipe · Auto-refreshing every 4s</footer>
+<div class="panel">
+  <h2>Attendance Trend <span class="count">Last 10 sessions</span></h2>
+  <canvas id="attendanceTrendChart"></canvas>
+</div>
+
+<footer>ClassSentinel &bull; Live synchronization every 4 seconds</footer>
+
+<div class="modal-overlay" id="profileModal" style="display:none;">
+  <div class="modal-card">
+    <button class="modal-close" onclick="closeProfile()">✕</button>
+    <div id="profileContent"></div>
+  </div>
+</div>
 
 <script>
-const API = ""; // same origin as Flask
+const API = "";
 let currentSession = null;
 let chart = null;
+let attendanceTrendChart = null;
 
-async function fetchJSON(url){
+async function fetchJSON(url) {
   const res = await fetch(API + url);
-  if(!res.ok) throw new Error("Request failed: " + url);
+  if (res.status === 401) { window.location.href = "/login"; throw new Error("Not authenticated"); }
+  if (!res.ok) throw new Error("Request failed: " + url);
   return res.json();
 }
 
-async function loadSessions(){
-  try{
+async function logout() {
+  await fetch("/api/logout", { method: "POST" });
+  window.location.href = "/login";
+}
+
+async function loadSessions() {
+  try {
     const sessions = await fetchJSON("/api/sessions");
     const select = document.getElementById("sessionSelect");
     const prevValue = select.value;
     select.innerHTML = "";
-    if(sessions.length === 0){
+    if (sessions.length === 0) {
       select.innerHTML = "<option>No sessions yet</option>";
       setLive(false);
       return;
@@ -368,19 +165,18 @@ async function loadSessions(){
       opt.textContent = label;
       select.appendChild(opt);
     });
-    // default to most recent session unless the user picked another one
     select.value = prevValue && [...select.options].some(o => o.value === prevValue) ? prevValue : sessions[0].id;
     currentSession = select.value;
     setLive(sessions[0].end_time === null && select.value == sessions[0].id);
-  }catch(e){
+  } catch (e) {
     setLive(false, true);
   }
 }
 
-function setLive(isLive, errored){
+function setLive(isLive, errored) {
   const dot = document.getElementById("liveDot");
   const label = document.getElementById("liveLabel");
-  if(errored){
+  if (errored) {
     dot.className = "dot";
     label.textContent = "BACKEND OFFLINE";
     return;
@@ -389,20 +185,20 @@ function setLive(isLive, errored){
   label.textContent = isLive ? "LIVE" : "SESSION ENDED";
 }
 
-function statusTag(status){
+function statusTag(status) {
   const cls = status === "Late" ? "late" : status === "On Time" ? "ontime" : "notmarked";
   return `<span class="status-tag ${cls}">${status}</span>`;
 }
 
-async function refreshDashboard(){
-  if(!currentSession) return;
-
-  try{
-    const [summary, students, alerts, engagement] = await Promise.all([
+async function refreshDashboard() {
+  if (!currentSession) return;
+  try {
+    const [summary, students, alerts, engagement, heatmap] = await Promise.all([
       fetchJSON(`/api/summary/${currentSession}`),
       fetchJSON(`/api/student-summary/${currentSession}`),
       fetchJSON(`/api/alerts/${currentSession}`),
-      fetchJSON(`/api/engagement/${currentSession}`)
+      fetchJSON(`/api/engagement/${currentSession}`),
+      fetchJSON(`/api/engagement/heatmap/${currentSession}`)
     ]);
 
     document.getElementById("cardMarked").textContent = summary.total_marked;
@@ -410,66 +206,52 @@ async function refreshDashboard(){
     document.getElementById("cardDrowsy").textContent = summary.drowsy_alerts;
     document.getElementById("cardEngagement").textContent = summary.avg_engagement + "%";
 
-    // Unified student summary table
-    document.getElementById("attCount").textContent = students.length ? `${students.length} present` : "";
+    document.getElementById("attCount").textContent = students.length ? `${students.length} present${students.filter(s => s.at_risk).length ? ` · ${students.filter(s => s.at_risk).length} at risk` : ""}` : "";
     const attWrap = document.getElementById("attendanceWrap");
-    if(students.length === 0){
+    if (students.length === 0) {
       attWrap.innerHTML = `<div class="empty">No students detected yet.</div>`;
-    }else{
+    } else {
       let rows = students.map(s => `
-        <tr>
-          <td>${s.student_id}</td>
-          <td>${s.student_name}</td>
-          <td>${statusTag(s.attendance)}</td>
-          <td>${s.first_seen}</td>
-          <td>${s.phone_alerts}</td>
-          <td>${s.drowsy_alerts}</td>
-          <td>${s.engagement}%</td>
-        </tr>`).join("");
+    <tr class="${s.at_risk ? "at-risk-row" : ""}">
+      <td>${s.student_id}</td>
+      <td><a class="student-link" onclick="openProfile('${s.student_id}')">${s.student_name}</a>${s.at_risk ? ' <span class="risk-badge">AT RISK</span>' : ""}</td>
+      <td>${statusTag(s.attendance)}</td>
+      <td>${s.first_seen}</td>
+      <td>${s.phone_alerts}</td>
+      <td>${s.drowsy_alerts}</td>
+      <td>${s.engagement}%</td>
+    </tr>`).join("");
       attWrap.innerHTML = `
-        <table>
-          <thead><tr><th>ID</th><th>Name</th><th>Attend.</th><th>First Seen</th><th>📵</th><th>😴</th><th>Engage.</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>`;
+    <table>
+      <thead><tr><th>ID</th><th>Name</th><th>Attend.</th><th>First Seen</th><th>📵</th><th>😴</th><th>Engage.</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
     }
 
-    // Alerts feed (merged, most recent first)
     const merged = [
-      ...alerts.phone.map(a => ({...a, type:"phone"})),
-      ...alerts.drowsy.map(a => ({...a, type:"drowsy"}))
-    ].sort((a,b) => (a.time < b.time ? 1 : -1)).slice(0, 20);
+      ...alerts.phone.map(a => ({ ...a, type: "phone" })),
+      ...alerts.drowsy.map(a => ({ ...a, type: "drowsy" }))
+    ].sort((a, b) => (a.time < b.time ? 1 : -1)).slice(0, 20);
 
     const alertsWrap = document.getElementById("alertsWrap");
-    if(merged.length === 0){
+    if (merged.length === 0) {
       alertsWrap.innerHTML = `<div class="empty">No alerts yet.</div>`;
-    }else{
+    } else {
       alertsWrap.innerHTML = merged.map(a => `
-        <div class="alert-row">
-          <div class="alert-icon ${a.type}">${a.type === "phone" ? "📵" : "😴"}</div>
-          <div>${a.type === "phone" ? `Phone detected${a.student_name ? " — " + a.student_name : " (unidentified)"}` : `Drowsiness detected${a.student_name ? " — " + a.student_name : " (unidentified)"}`}</div>
-          <div class="alert-time">${a.time}</div>
-        </div>`).join("");
+    <div class="alert-row">
+      <div class="alert-icon ${a.type}">${a.type === "phone" ? "📵" : "😴"}</div>
+      <div>${a.type === "phone" ? `Phone detected${a.student_name ? " — " + a.student_name : " (unidentified)"}` : `Drowsiness detected${a.student_name ? " — " + a.student_name : " (unidentified)"}`}</div>
+      <div class="alert-time">${a.time}</div>
+    </div>`).join("");
     }
 
-    // Engagement chart
     const labels = engagement.map(e => e.time);
     const scores = engagement.map(e => e.score);
-    if(!chart){
+    if (!chart) {
       const ctx = document.getElementById("engagementChart").getContext("2d");
       chart = new Chart(ctx, {
         type: "line",
-        data: {
-          labels: labels,
-          datasets: [{
-            data: scores,
-            borderColor: "#4FD1C5",
-            backgroundColor: "rgba(79,209,197,0.12)",
-            fill: true,
-            tension: 0.35,
-            pointRadius: 0,
-            borderWidth: 2
-          }]
-        },
+        data: { labels: labels, datasets: [{ data: scores, borderColor: "#4FD1C5", backgroundColor: "rgba(79,209,197,0.12)", fill: true, tension: 0.35, pointRadius: 0, borderWidth: 2 }] },
         options: {
           responsive: true,
           plugins: { legend: { display: false } },
@@ -479,36 +261,122 @@ async function refreshDashboard(){
           }
         }
       });
-    }else{
+    } else {
       chart.data.labels = labels;
       chart.data.datasets[0].data = scores;
       chart.update();
     }
 
+    renderHeatmap(heatmap);
+
     setLive(true);
-  }catch(e){
+  } catch (e) {
     setLive(false, true);
   }
 }
 
+function renderHeatmap(buckets) {
+  const wrap = document.getElementById("engagementHeatmap");
+  if (!buckets || buckets.length === 0) {
+    wrap.innerHTML = "";
+    return;
+  }
+  wrap.innerHTML = buckets.map(b => {
+    const score = b.avg_score;
+    const color = score >= 70 ? "#4ADE80" : score >= 40 ? "#F5A623" : "#F2545B";
+    return `<div class="heatmap-block" style="background:${color}" title="${b.minute} — ${score}%"></div>`;
+  }).join("");
+}
+
+async function loadAttendanceTrend() {
+  try {
+    const trend = await fetchJSON("/api/trends/attendance");
+    const labels = trend.map(t => `#${t.session_id}`);
+    const values = trend.map(t => t.attendance_pct);
+
+    if (!attendanceTrendChart) {
+      const ctx = document.getElementById("attendanceTrendChart").getContext("2d");
+      attendanceTrendChart = new Chart(ctx, {
+        type: "bar",
+        data: { labels: labels, datasets: [{ data: values, backgroundColor: "#4FD1C5", borderRadius: 6, maxBarThickness: 36 }] },
+        options: {
+          responsive: true,
+          animation: { duration: 400 },
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: "#8996A8", font: { family: "JetBrains Mono", size: 10 } }, grid: { display: false } },
+            y: { min: 0, max: 100, ticks: { color: "#8996A8", font: { family: "JetBrains Mono", size: 10 }, callback: v => v + "%" }, grid: { color: "#262F3D" } }
+          }
+        }
+      });
+    } else {
+      attendanceTrendChart.data.labels = labels;
+      attendanceTrendChart.data.datasets[0].data = values;
+      attendanceTrendChart.update();
+    }
+  } catch (e) {}
+}
+
 document.getElementById("sessionSelect").addEventListener("change", (e) => {
   currentSession = e.target.value;
-  chart = null; // rebuild chart for the newly selected session
+  chart = null;
   refreshDashboard();
 });
 
-function downloadReport(){
-  if(!currentSession) return;
+async function openProfile(studentId) {
+  const modal = document.getElementById("profileModal");
+  const content = document.getElementById("profileContent");
+  content.innerHTML = `<div class="empty">Loading...</div>`;
+  modal.style.display = "flex";
+  try {
+    const p = await fetchJSON(`/api/student/${studentId}/profile`);
+    const rows = p.sessions.map(s => `
+      <tr>
+        <td>#${s.session_id}</td>
+        <td>${s.start_time}</td>
+        <td>${s.present ? statusTag(s.attendance) : `<span class="status-tag notmarked">Absent</span>`}</td>
+        <td>${s.phone_alerts ?? "—"}</td>
+        <td>${s.drowsy_alerts ?? "—"}</td>
+        <td>${s.engagement !== null ? s.engagement + "%" : "—"}</td>
+      </tr>`).join("");
+
+    content.innerHTML = `
+      <h2 style="margin-bottom:4px;">${p.student_name}</h2>
+      <div style="font-family:var(--font-mono);font-size:12px;color:var(--text-mute);">${p.student_id}</div>
+      <div class="profile-stats">
+        <div class="profile-stat"><div class="label">Attendance</div><div class="value">${p.attendance_pct}%</div></div>
+        <div class="profile-stat"><div class="label">Avg Engagement</div><div class="value">${p.avg_engagement}%</div></div>
+        <div class="profile-stat"><div class="label">Phone Alerts</div><div class="value">${p.total_phone_alerts}</div></div>
+        <div class="profile-stat"><div class="label">Drowsy Alerts</div><div class="value">${p.total_drowsy_alerts}</div></div>
+      </div>
+      <table>
+        <thead><tr><th>Session</th><th>Date</th><th>Status</th><th>📵</th><th>😴</th><th>Engage.</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  } catch (e) {
+    content.innerHTML = `<div class="empty">Could not load profile.</div>`;
+  }
+}
+
+function closeProfile() {
+  document.getElementById("profileModal").style.display = "none";
+}
+
+function downloadReport() {
+  if (!currentSession) return;
   window.location.href = `/api/report/${currentSession}/pdf`;
 }
 
-async function tick(){
+async function tick() {
   await loadSessions();
   await refreshDashboard();
 }
 
 tick();
 setInterval(tick, 4000);
+
+loadAttendanceTrend();
+setInterval(loadAttendanceTrend, 20000);
 </script>
 
 </body>

@@ -15,20 +15,63 @@ The dashboard polls these endpoints every few seconds to stay live.
 import os
 import sys
 import tempfile
-from flask import Flask, jsonify, send_from_directory, send_file
+from functools import wraps
+from flask import Flask, jsonify, send_from_directory, send_file, request, redirect, url_for, session
 from flask_cors import CORS
+from werkzeug.security import check_password_hash
 
-# Allow "import database" to work when this file is run from backend/
+# Allow "import database" and "import config" to work when this file is run from backend/
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import database as db
+import config
 from report_generator import generate_report_pdf
 
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")
 
 app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path="")
-CORS(app)
+app.secret_key = config.SECRET_KEY
+CORS(app, supports_credentials=True)
 
 db.init_db()
+
+
+# ── Authentication ───────────────────────────────────────────────
+PUBLIC_PATHS = {"/login", "/api/login"}
+
+
+@app.before_request
+def require_login():
+    if request.path in PUBLIC_PATHS:
+        return
+    # Let CSS/JS/font assets load on the login page itself before login.
+    if request.path.startswith("/static/") or request.path.endswith((".css", ".js", ".woff2", ".woff")):
+        return
+    if not session.get("logged_in"):
+        if request.path.startswith("/api/"):
+            return jsonify({"error": "Not authenticated"}), 401
+        return redirect(url_for("login_page"))
+
+
+@app.route("/login")
+def login_page():
+    return send_from_directory(FRONTEND_DIR, "login.html")
+
+
+@app.route("/api/login", methods=["POST"])
+def api_login():
+    data = request.get_json(force=True, silent=True) or {}
+    username = data.get("username", "")
+    password = data.get("password", "")
+    if username == config.TEACHER_USERNAME and check_password_hash(config.TEACHER_PASSWORD_HASH, password):
+        session["logged_in"] = True
+        return jsonify({"ok": True})
+    return jsonify({"ok": False, "error": "Invalid username or password"}), 401
+
+
+@app.route("/api/logout", methods=["POST"])
+def api_logout():
+    session.clear()
+    return jsonify({"ok": True})
 
 
 # ── Frontend ─────────────────────────────────────────────────────
@@ -78,6 +121,29 @@ def api_engagement(session_id):
 @app.route("/api/summary/<int:session_id>")
 def api_summary(session_id):
     return jsonify(db.get_summary(session_id))
+
+# ── Trends ───────────────────────────────────────────────────────
+@app.route("/api/trends/attendance")
+def api_attendance_trend():
+    return jsonify(db.get_attendance_trend(limit_sessions=10))
+
+
+@app.route("/api/trends/student/<student_id>")
+def api_student_attendance_history(student_id):
+    return jsonify(db.get_student_attendance_history(student_id, limit_sessions=15))
+
+
+@app.route("/api/engagement/heatmap/<int:session_id>")
+def api_engagement_heatmap(session_id):
+    return jsonify(db.get_engagement_heatmap(session_id))
+
+
+@app.route("/api/student/<student_id>/profile")
+def api_student_profile(student_id):
+    profile = db.get_student_profile(student_id)
+    if profile is None:
+        return jsonify({"error": "Student not found"}), 404
+    return jsonify(profile)
 
 
 # ── PDF report ───────────────────────────────────────────────────

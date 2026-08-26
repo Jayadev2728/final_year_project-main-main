@@ -347,11 +347,17 @@ def get_student_summary(session_id):
     for p in presence:
         sid, sname  = p["student_id"], p["student_name"]
         attendance  = get_todays_attendance_status(sid)
-        status      = attendance["status"] if attendance else "Not marked"
+        # Being in this list means session_presence confirms they were
+        # detected THIS session -- "Present" is always correct here, even
+        # if the once-a-day attendance row belongs to an earlier session
+        # from today.
+        status      = attendance["status"] if attendance else "Present"
         phone_count  = get_phone_alert_count(session_id, sid)
         drowsy_count = get_drowsy_alert_count(session_id, sid)
         engagement   = max(0, 100 - phone_count * config.PHONE_ALERT_PENALTY
                                     - drowsy_count * config.DROWSY_ALERT_PENALTY)
+        at_risk      = (phone_count >= config.AT_RISK_PHONE_THRESHOLD
+                         or drowsy_count >= config.AT_RISK_DROWSY_THRESHOLD)
         rows.append({
             "student_id":    sid,
             "student_name":  sname,
@@ -360,7 +366,8 @@ def get_student_summary(session_id):
             "last_seen":     p["last_seen"],
             "phone_alerts":  phone_count,
             "drowsy_alerts": drowsy_count,
-            "engagement":    engagement
+            "engagement":    engagement,
+            "at_risk":       at_risk
         })
     return rows
 
@@ -382,6 +389,115 @@ def get_engagement_log(session_id):
         )
         return [dict(r) for r in cur.fetchall()]
 
+def get_engagement_heatmap(session_id):
+    """
+    Session engagement bucketed into 1-minute segments (averaged) — same
+    underlying engagement_log data as the line chart, grouped for a
+    compact minute-by-minute heatmap strip instead of a dense point-per-
+    10-seconds view.
+    """
+    with db_cursor() as cur:
+        cur.execute(
+            """SELECT substr(time, 1, 5) as minute, AVG(score) as avg_score
+               FROM engagement_log
+               WHERE session_id = ?
+               GROUP BY minute
+               ORDER BY minute""",
+            (session_id,)
+        )
+        rows = [dict(r) for r in cur.fetchall()]
+    for r in rows:
+        r["avg_score"] = round(r["avg_score"], 1)
+    return rows
+
+
+
+def get_student_profile(student_id, limit_sessions=20):
+    """
+    Full cross-session history for one student: attendance status,
+    alert counts, and derived engagement for each of their last N
+    sessions, plus summary averages. Used by the dashboard's
+    per-student history view.
+    """
+    import config
+    student_id = normalize_id(student_id)
+
+    with db_cursor() as cur:
+        cur.execute(
+            """SELECT student_name FROM session_presence
+               WHERE student_id = ? ORDER BY id DESC LIMIT 1""",
+            (student_id,)
+        )
+        row = cur.fetchone()
+    if row is None:
+        return None
+    student_name = row["student_name"]
+
+    with db_cursor() as cur:
+        cur.execute(
+            """SELECT s.id as session_id, s.start_time,
+                      a.status as attendance_status,
+                      sp.first_seen
+               FROM sessions s
+               LEFT JOIN attendance a
+                 ON a.session_id = s.id AND a.student_id = ?
+               LEFT JOIN session_presence sp
+                 ON sp.session_id = s.id AND sp.student_id = ?
+               ORDER BY s.id DESC
+               LIMIT ?""",
+            (student_id, student_id, limit_sessions)
+        )
+        rows = [dict(r) for r in cur.fetchall()]
+
+    sessions = []
+    total_present = 0
+    total_phone = 0
+    total_drowsy = 0
+    engagement_sum = 0
+    engagement_count = 0
+
+    for r in rows:
+        present = r["first_seen"] is not None
+        if present:
+            total_present += 1
+            phone_count  = get_phone_alert_count(r["session_id"], student_id)
+            drowsy_count = get_drowsy_alert_count(r["session_id"], student_id)
+            engagement   = max(0, 100 - phone_count * config.PHONE_ALERT_PENALTY
+                                        - drowsy_count * config.DROWSY_ALERT_PENALTY)
+            total_phone  += phone_count
+            total_drowsy += drowsy_count
+            engagement_sum += engagement
+            engagement_count += 1
+        else:
+            phone_count = drowsy_count = engagement = None
+
+        sessions.append({
+            "session_id":    r["session_id"],
+            "start_time":    r["start_time"],
+            "present":       present,
+            # Presence in THIS session is the real signal -- the once-a-day
+            # attendance row only ties to whichever session first recorded
+            # them that day, so a later same-day session can be present
+            # with no row there at all.
+            "attendance":    (r["attendance_status"] or "Present") if present else "Absent",
+            "phone_alerts":  phone_count,
+            "drowsy_alerts": drowsy_count,
+            "engagement":    engagement
+        })
+
+    sessions = list(reversed(sessions))  # oldest -> newest
+
+    return {
+        "student_id":          student_id,
+        "student_name":        student_name,
+        "sessions_counted":    len(rows),
+        "sessions_present":    total_present,
+        "attendance_pct":      round(100 * total_present / len(rows), 1) if rows else 0,
+        "avg_engagement":      round(engagement_sum / engagement_count, 1) if engagement_count else 0,
+        "total_phone_alerts":  total_phone,
+        "total_drowsy_alerts": total_drowsy,
+        "sessions":            sessions
+    }
 
 def export_attendance_csv(session_id, path="attendance.csv"):
     """Writes attendance for one session out to CSV, matching the format your
@@ -397,6 +513,70 @@ def export_attendance_csv(session_id, path="attendance.csv"):
             writer.writerow(["student_id", "student_name", "date", "time", "status"])
         for r in rows:
             writer.writerow([r["student_id"], r["student_name"], r["date"], r["time"], r["status"]])
+
+# ── Trends (across multiple sessions) ───────────────────────────────
+def get_attendance_trend(limit_sessions=10):
+    """
+    Class-wide attendance % per session, most recent `limit_sessions` first.
+    Used for a trend chart: 'how did overall attendance move over the
+    last N classes'. A session's total headcount is taken as the number
+    of distinct students who have EVER been enrolled (based on
+    student_photos), so % is comparable across sessions even if a
+    session had fewer detections.
+    """
+    import config
+    from pathlib import Path
+
+    root = Path(config.STUDENT_PHOTOS_DIR)
+    total_enrolled = 0
+    if root.is_dir():
+        total_enrolled = len([f for f in root.iterdir() if f.is_dir()])
+    total_enrolled = max(1, total_enrolled)  # avoid divide-by-zero
+
+    with db_cursor() as cur:
+        cur.execute(
+            """SELECT s.id as session_id, s.start_time,
+                      COUNT(DISTINCT a.student_id) as present_count
+               FROM sessions s
+               LEFT JOIN attendance a ON a.session_id = s.id
+               GROUP BY s.id
+               ORDER BY s.id DESC
+               LIMIT ?""",
+            (limit_sessions,)
+        )
+        rows = [dict(r) for r in cur.fetchall()]
+
+    for r in rows:
+        r["total_enrolled"] = total_enrolled
+        r["attendance_pct"] = round(100 * r["present_count"] / total_enrolled, 1)
+
+    return list(reversed(rows))  # oldest -> newest, so a chart reads left-to-right
+
+
+def get_student_attendance_history(student_id, limit_sessions=15):
+    """
+    One student's attendance status across their last N sessions where
+    a session actually occurred (not just sessions they missed entirely
+    with zero record) — used for a per-student trend on their profile view.
+    """
+    student_id = normalize_id(student_id)
+    with db_cursor() as cur:
+        cur.execute(
+            """SELECT s.id as session_id, s.start_time,
+                      a.status, a.time as marked_time
+               FROM sessions s
+               LEFT JOIN attendance a
+                 ON a.session_id = s.id AND a.student_id = ?
+               ORDER BY s.id DESC
+               LIMIT ?""",
+            (student_id, limit_sessions)
+        )
+        rows = [dict(r) for r in cur.fetchall()]
+
+    for r in rows:
+        r["status"] = r["status"] or "Absent"
+
+    return list(reversed(rows))
 
 
 # ── Summary (used for the dashboard's top cards) ───────────────────

@@ -31,23 +31,26 @@ def _worker():
         print("WARNING: pyttsx3 not installed. Voice alerts disabled. Run: pip install pyttsx3")
         return
 
+    print("[VOICE] Worker thread started.")
+
     while True:
         text = _alert_queue.get()
         if text is None:
             break
+        print(f"[VOICE] Dequeued: {text}")
         try:
-            # A fresh engine per phrase avoids a known pyttsx3 issue on
-            # Windows (SAPI5) where reusing one engine across multiple
-            # say()/runAndWait() calls only speaks the first phrase and
-            # silently does nothing on every call after that.
             engine = pyttsx3.init()
             engine.setProperty("rate", 165)
+            print("[VOICE] Engine initialized, speaking now...")
             engine.say(text)
             engine.runAndWait()
+            print("[VOICE] runAndWait() completed.")
             engine.stop()
             del engine
         except Exception as exc:
-            print(f"Voice alert error: {exc}")
+            print(f"[VOICE ERROR] {type(exc).__name__}: {exc}")
+
+    print("[VOICE] Worker thread exiting.")
 
 
 _thread = threading.Thread(target=_worker, daemon=True)

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClassSentinel — Login</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0E1218;--surface:#161C25;--surface-2:#1C2430;--border:#262F3D;--teal:#4FD1C5;--red:#F2545B;--text:#E7ECF3;--text-mute:#8996A8;--font-display:'Space Grotesk',sans-serif;--font-body:'Inter',sans-serif;--font-mono:'JetBrains Mono',monospace;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--font-body);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:36px 32px;width:100%;max-width:360px;}
+.eyebrow{font-family:var(--font-mono);font-size:11px;letter-spacing:0.18em;color:var(--teal);text-transform:uppercase;margin-bottom:8px;text-align:center;}
+h1{font-family:var(--font-display);font-size:24px;font-weight:700;text-align:center;margin-bottom:24px;}
+label{font-family:var(--font-mono);font-size:11px;letter-spacing:0.06em;color:var(--text-mute);text-transform:uppercase;display:block;margin-bottom:6px;margin-top:16px;}
+input{width:100%;font-family:var(--font-body);font-size:14px;background:var(--surface-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px 12px;outline:none;}
+input:focus{border-color:var(--teal);}
+button{width:100%;margin-top:24px;font-family:var(--font-mono);font-size:13px;font-weight:600;background:var(--teal);color:#0E1218;border:none;border-radius:8px;padding:11px;cursor:pointer;transition:opacity .15s;}
+button:hover{opacity:0.85;}
+.error{color:var(--red);font-size:12px;font-family:var(--font-mono);margin-top:14px;text-align:center;display:none;}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="eyebrow">Classroom Monitoring System</div>
+  <h1>ClassSentinel</h1>
+  <form id="loginForm">
+    <label>Username</label>
+    <input type="text" id="username" autocomplete="username" required>
+    <label>Password</label>
+    <input type="password" id="password" autocomplete="current-password" required>
+    <button type="submit">Sign In</button>
+    <div class="error" id="loginError">Invalid username or password.</div>
+  </form>
+</div>
+<script>
+document.getElementById("loginForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const username = document.getElementById("username").value;
+  const password = document.getElementById("password").value;
+  const errorEl = document.getElementById("loginError");
+  errorEl.style.display = "none";
+  try {
+    const res = await fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      window.location.href = "/";
+    } else {
+      errorEl.textContent = data.error || "Invalid username or password.";
+      errorEl.style.display = "block";
+    }
+  } catch (err) {
+    errorEl.textContent = "Could not reach the server.";
+    errorEl.style.display = "block";
+  }
+});
+</script>
+</body>
+</html>

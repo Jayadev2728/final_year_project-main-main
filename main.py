@@ -1948,3 +1948,10 @@ finally:
     db.end_session(session_id)
     db.export_attendance_csv(session_id, config.ATTENDANCE_CSV)
     print(f"Session {session_id} closed. Attendance exported to {config.ATTENDANCE_CSV}.")
+
+    try:
+        from session_report_mailer import generate_and_send
+        session_info = db.get_session(session_id)
+        generate_and_send(session_id, session_info["start_time"])
+    except Exception as exc:
+        print(f"[REPORT ERROR] Automated report step failed: {exc}")
