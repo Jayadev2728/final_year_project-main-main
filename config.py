@@ -74,7 +74,7 @@ DNN_FACE_CONFIDENCE_THRESHOLD = 0.5   # 0-1. Higher = stricter (fewer false posi
 
 # ── Drowsiness (EAR) ─────────────────────────────────────────────
 EAR_THRESHOLD  = 0.15
-DROWSY_SECONDS = 3    # continuous eyes-closed time before flagging drowsy.
+DROWSY_SECONDS = 5    # continuous eyes-closed time before flagging drowsy.
                           # Time-based rather than frame-count based, because
                           # frame rate varies with how much else is running
                           # (YOLO + MediaPipe + LBPH every frame) — a fixed

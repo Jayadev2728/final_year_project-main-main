@@ -929,7 +929,8 @@ EAR_AWAKE_CONFIRM_FRAMES = 3
 # Head-pose safeguard for drowsiness
 # Prevents looking down from being interpreted as closed eyes.
 HEAD_POSE_YAW_LIMIT = 35.0
-HEAD_POSE_PITCH_DOWN_LIMIT = 22.0
+HEAD_POSE_PITCH_DOWN_LIMIT = 25.0
+HEAD_POSE_PITCH_DOWN_DELTA = 15.0
 HEAD_POSE_PITCH_UP_LIMIT = 25.0
 
 # Require several valid forward-facing frames before
@@ -974,7 +975,7 @@ last_yolo_results = None
 # YOLO runs only every few frames; each phone gets its OWN confirmation
 # state, so several phones can be detected at the same time.
 PHONE_YOLO_EVERY_N_FRAMES = 2
-PHONE_CONFIDENCE_THRESHOLD = 0.20
+PHONE_CONFIDENCE_THRESHOLD = 0.15
 PHONE_CONFIRMATIONS = 2
 PHONE_RESULT_MAX_AGE = 0.90
 PHONE_IMAGE_SIZE = 640
@@ -1053,6 +1054,15 @@ def estimate_head_pose(landmarks, w, h):
 
         pitch = float(euler_angles[0].item())
         yaw = float(euler_angles[1].item())
+
+        # decomposeProjectionMatrix's Euler angle extraction has a known
+        # +/-180 branch ambiguity: a normal, forward-facing pitch can come
+        # back near +/-180 instead of near 0. Wrap it back into the
+        # physiologically sane -90..90 range before it's used anywhere.
+        if pitch > 90:
+            pitch -= 180
+        elif pitch < -90:
+            pitch += 180
 
         return yaw, pitch
 
@@ -1135,10 +1145,10 @@ try:
         drowsy_names = []
         drowsy = False
 
+        # ---------- Pass 1: compute raw recognition results ----------
+        face_results = []
         for i, face in enumerate(valid_faces):
-            x,y,fw,fh = map(int, face[:4])
             tid = assignments[i]
-            track = tracks[tid]
             quality = face_quality(frame, face)
             result = None
 
@@ -1150,6 +1160,37 @@ try:
                         not reliable_recognition_quality(quality) and
                         (result["score"] < 0.400 or result["margin"] < 0.045)):
                         result = None
+
+            face_results.append({"face": face, "tid": tid, "quality": quality, "result": result})
+
+        # ---------- Pass 2: resolve duplicate identity claims within this frame ----------
+        # Two different tracks can momentarily both score above threshold for
+        # the SAME enrolled student, especially with several people in frame
+        # at once. Without this, both boxes would display the same name. A
+        # track already locked to an identity keeps it; otherwise the
+        # strongest match wins and the rest fall back to Verifying/Unknown.
+        claims_by_id = {}
+        for entry in face_results:
+            rid = entry["result"]["id"] if entry["result"] else None
+            if rid is not None:
+                claims_by_id.setdefault(rid, []).append(entry)
+
+        for rid, claimants in claims_by_id.items():
+            if len(claimants) <= 1:
+                continue
+
+            already_locked = [c for c in claimants if tracks[c["tid"]]["stable_id"] == rid]
+            winner = already_locked[0] if already_locked else max(claimants, key=lambda c: c["result"]["score"])
+
+            for c in claimants:
+                if c is not winner:
+                    c["result"] = None
+
+        # ---------- Pass 3: identity confirmation, attendance, drawing ----------
+        for entry in face_results:
+            face, tid, quality, result = entry["face"], entry["tid"], entry["quality"], entry["result"]
+            x, y, fw, fh = map(int, face[:4])
+            track = tracks[tid]
 
             stable_name, stable_id, locked = update_identity(track, result)
 
@@ -1219,6 +1260,8 @@ try:
                         "head_down_frames": 0,
                         "last_yaw": None,
                         "last_pitch": None,
+                        "pitch_baseline_values": [],
+                        "pitch_baseline": None,
                     }
                 )
 
@@ -1279,9 +1322,40 @@ try:
                         st["last_yaw"] = yaw
                         st["last_pitch"] = pitch
 
-                        looking_down = pitch > HEAD_POSE_PITCH_DOWN_LIMIT
+                        # Calibrate each student's OWN natural resting pitch,
+                        # the same way EAR is calibrated per student below.
+                        # Camera mounting angle and a person's seated height
+                        # both shift what "looking straight ahead" means in
+                        # pitch degrees -- a single global cutoff flags a
+                        # normal, slight head tilt as "looking down" for
+                        # some students while missing it entirely for
+                        # others. Collect early readings unconditionally and
+                        # switch to each student's own baseline once enough
+                        # samples exist; fall back to the global default
+                        # while still calibrating.
+                        if st["pitch_baseline"] is None and len(st["pitch_baseline_values"]) < 40:
+                            st["pitch_baseline_values"].append(pitch)
+
+                        if st["pitch_baseline"] is None and len(st["pitch_baseline_values"]) >= 25:
+                            st["pitch_baseline"] = float(np.median(st["pitch_baseline_values"]))
+
+                        if st["pitch_baseline"] is not None:
+                            pitch_down_limit = st["pitch_baseline"] + HEAD_POSE_PITCH_DOWN_DELTA
+                        else:
+                            pitch_down_limit = HEAD_POSE_PITCH_DOWN_LIMIT
+
+                        looking_down = pitch > pitch_down_limit
                         looking_up = pitch < -HEAD_POSE_PITCH_UP_LIMIT
                         looking_sideways = abs(yaw) > HEAD_POSE_YAW_LIMIT
+
+                        if config.DEBUG_PRINT_EAR:
+                            baseline_str = f"{st['pitch_baseline']:.1f}" if st["pitch_baseline"] is not None else "calibrating"
+                            print(
+                                f"HEAD POSE | {match['name']} | "
+                                f"yaw={yaw:.1f} pitch={pitch:.1f} | "
+                                f"baseline={baseline_str} limit={pitch_down_limit:.1f} | "
+                                f"down={looking_down} up={looking_up} sideways={looking_sideways}"
+                            )
 
                         if looking_down or looking_up or looking_sideways:
                             st["head_pose_valid_frames"] = 0
@@ -1374,7 +1448,7 @@ try:
 
                     threshold = max(
                         0.13,
-                        min(0.24, baseline * 0.70)
+                        min(0.24, baseline * 0.62)
                     )
 
                     raw_eyes_closed = smooth < threshold
@@ -1387,8 +1461,11 @@ try:
                         or looking_sideways
                     )
 
-                    eyes_closed = raw_eyes_closed
-
+                    # A student looking down/up/sideways naturally produces a
+                    # lower EAR from perspective alone, not because their
+                    # eyes are actually closed. Gate on head pose so "head
+                    # down" is never misread as "drowsy".
+                    eyes_closed = raw_eyes_closed and not head_pose_blocked
                     if config.DEBUG_PRINT_EAR:
                         print(
                             f"DROWSY CHECK | "
@@ -1399,20 +1476,6 @@ try:
                             f"POSE_VALID={st['head_pose_valid_frames']} | "
                             f"EYES_CLOSED={eyes_closed}"
                         )
-                    # ── DROWSINESS DETECTION ───────────────────────────────
-
-                    # Use EAR directly. Do not block drowsiness using head pose.
-                    eyes_closed = raw_eyes_closed
-
-                    if config.DEBUG_PRINT_EAR:
-                        print(
-                            f"DROWSY CHECK | "
-                            f"EAR={smooth:.3f} | "
-                            f"THR={threshold:.3f} | "
-                            f"RAW_CLOSED={raw_eyes_closed} | "
-                            f"EYES_CLOSED={eyes_closed}"
-                        )
-
                     # Count consecutive closed-eye frames
                     if eyes_closed:
                         st["closed_frames"] += 1
@@ -1427,9 +1490,12 @@ try:
                         st["open_frames"] += 1
                         st["closed_frames"] = 0
 
-                        # Reset after eyes are open
-                        if st["open_frames"] >= 3:
-                            st["start"] = None
+                        # Reset the timer as soon as eyes are genuinely open
+                        # (or head-pose-blocked) -- one clean frame is
+                        # enough evidence the closed streak has ended, so
+                        # the displayed elapsed time can't drift upward
+                        # while someone is actually looking away.
+                        st["start"] = None
 
                     # Calculate closed-eye duration
                     elapsed = 0.0
@@ -1587,6 +1653,10 @@ try:
                         classes=[67],
                         verbose=False,
                     )
+
+                    raw_box_count = sum(len(rr.boxes) for rr in results if rr.boxes is not None)
+                    if raw_box_count > 0:
+                        print(f"[YOLO RAW] {raw_box_count} phone-class detection(s) this frame")
 
                     for rr in results:
                         if rr.boxes is None:

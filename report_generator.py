@@ -30,7 +30,7 @@ class ReportPDF(FPDF):
         self.cell(0, 9, "ClassSentinel", ln=True)
         self.set_font("Helvetica", "", 8)
         self.set_text_color(210, 225, 238)
-        self.cell(0, 5, "AI-BASED CLASSROOM MONITORING & ANALYTICS", ln=True)
+        self.cell(0, 5, "SMART CLASSROOM MONITORING & ANALYTICS", ln=True)
         self.set_draw_color(*TEAL)
         self.set_line_width(0.8)
         self.line(10, 20, 200, 20)
@@ -43,7 +43,7 @@ class ReportPDF(FPDF):
         self.set_y(-12)
         self.set_font("Helvetica", "I", 8)
         self.set_text_color(*GREY)
-        self.cell(0, 7, f"ClassSentinel | Session Performance Report | Page {self.page_no()}", align="C")
+        self.cell(0, 7, f"Smart Attendance | Session Performance Report | Page {self.page_no()}", align="C")
 
     def section_title(self, text):
         self.ln(4)
@@ -73,11 +73,12 @@ class ReportPDF(FPDF):
 
 
 def generate_report_pdf(session_id, output_path):
-    session  = db.get_session(session_id)
-    students = db.get_student_summary(session_id)
-    phone    = db.get_phone_alerts(session_id, limit=100000)
-    drowsy   = db.get_drowsy_alerts(session_id, limit=100000)
-    summary  = db.get_summary(session_id)
+    session    = db.get_session(session_id)
+    students   = db.get_student_summary(session_id)
+    phone      = db.get_phone_alerts(session_id, limit=100000)
+    drowsy     = db.get_drowsy_alerts(session_id, limit=100000)
+    summary    = db.get_summary(session_id)
+    absentees  = db.get_absentees(session_id)
 
     pdf = ReportPDF()
     pdf.set_auto_page_break(auto=True, margin=20)
@@ -122,7 +123,7 @@ def generate_report_pdf(session_id, output_path):
         pdf.cell(0, 6, "No engagement observations were recorded.", ln=True)
 
     # ── Unified per-student summary — the main table ────────────
-    pdf.section_title(f"Student-Level Performance ({len(students)} present)")
+        pdf.section_title(f"Student-Level Performance ({len(students)} present)")
     if students:
         widths = [28, 40, 22, 22, 22, 22, 24]
         pdf.table_header(widths, ["ID", "Name", "Attend.", "First Seen", "Phone", "Drowsy", "Engage."])
@@ -135,6 +136,18 @@ def generate_report_pdf(session_id, output_path):
         pdf.set_font("Helvetica", "I", 9)
         pdf.set_text_color(*GREY)
         pdf.cell(0, 6, "No students detected in this session.", ln=True)
+
+    # ── Absentees ────────────────────────────────────────────
+    pdf.section_title(f"Absentees ({len(absentees)})")
+    if absentees:
+        widths = [40, 90]
+        pdf.table_header(widths, ["ID", "Name"])
+        for i, a in enumerate(absentees):
+            pdf.table_row(widths, [a["student_id"], a["student_name"]], fill=(i % 2 == 0))
+    else:
+        pdf.set_font("Helvetica", "I", 9)
+        pdf.set_text_color(*GREY)
+        pdf.cell(0, 6, "Everyone enrolled was present.", ln=True)
 
             # ── Alert logs (deduplicated per student) ──────────────────────
     pdf.ln(4)

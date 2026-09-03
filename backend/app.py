@@ -146,6 +146,11 @@ def api_student_profile(student_id):
     return jsonify(profile)
 
 
+@app.route("/api/absentees/<int:session_id>")
+def api_absentees(session_id):
+    return jsonify(db.get_absentees(session_id))
+
+
 # ── PDF report ───────────────────────────────────────────────────
 @app.route("/api/report/<int:session_id>/pdf")
 def api_report_pdf(session_id):

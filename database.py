@@ -272,6 +272,42 @@ def get_session_presence(session_id):
         return [dict(r) for r in cur.fetchall()]
 
 
+def get_absentees(session_id):
+    """
+    Enrolled students who were NOT detected at all in this session.
+    Enrollment comes from the student photo folders -- the same source
+    main.py builds its face database from -- since "who is enrolled" is
+    never itself written to the database.
+    """
+    import config
+    from pathlib import Path
+
+    root = Path(config.STUDENT_PHOTOS_DIR)
+    enrolled = {}
+    if root.is_dir():
+        for folder in sorted(root.iterdir()):
+            if not folder.is_dir():
+                continue
+            parts = folder.name.split("_", 1)
+            if len(parts) != 2:
+                continue
+            sid = normalize_id(parts[0])
+            sname = normalize_name(parts[1])
+            enrolled[sid] = sname
+
+    present_ids = {p["student_id"] for p in get_session_presence(session_id)}
+
+    absentees = [
+        {"student_id": sid, "student_name": sname}
+        for sid, sname in enrolled.items()
+        if sid not in present_ids
+    ]
+    return sorted(absentees, key=lambda a: a["student_name"])
+
+
+# ── Alerts ───────────────────────────────────────────────────────
+
+
 # ── Alerts ───────────────────────────────────────────────────────
 def log_phone_alert(session_id, student_id=None, student_name=None):
     """student_id/student_name are the closest recognized face to the phone
