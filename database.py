@@ -1,7 +1,7 @@
 """
 database.py
 ------------
-SQLite database layer for ClassSentinel.
+SQLite database layer for SmartMonitor.
 
 This module is the single source of truth for the schema and all
 read/write operations. Two different programs use it:

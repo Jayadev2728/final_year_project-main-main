@@ -1,4 +1,3 @@
-<!-- cat > /mnt/user-data/outputs/index.html << 'HTMLEOF' -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -161,6 +160,14 @@ a.student-link:hover{color:var(--teal);border-bottom-color:var(--teal);}
 .absent-id{font-family:var(--font-mono);color:var(--text-mute);font-size:11px;margin-left:auto;}
 
 canvas{max-height:230px;}
+.live-feed-wrap{position:relative;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:16/9;}
+.live-feed-wrap img{width:100%;height:100%;object-fit:cover;display:block;}
+.live-feed-badge{position:absolute;top:12px;left:12px;display:flex;align-items:center;gap:7px;
+  background:rgba(4,6,10,.65);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.1);
+  padding:6px 12px;border-radius:100px;font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;color:#fff;}
+.live-feed-badge .dot{background:var(--red);box-shadow:0 0 8px var(--red);animation:pulse 1.4s infinite;}
+.live-feed-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  color:var(--text-mute);font-family:var(--font-mono);font-size:12px;flex-direction:column;gap:8px;}
 .heatmap-strip{display:flex;gap:4px;margin-top:16px;}
 .heatmap-block{flex:1;height:30px;border-radius:6px;transition:transform .12s;box-shadow:0 4px 10px -6px rgba(0,0,0,.6);}
 .heatmap-block:hover{transform:scaleY(1.18);}
@@ -246,6 +253,15 @@ canvas{max-height:230px;}
     <div class="view active" id="view-overview">
       <div class="view-header">
         <div><h1>Overview</h1><div class="desc">Live snapshot of the current session</div></div>
+      </div>
+
+      <div class="panel">
+        <h2><span class="tg"><span class="ico">📷</span>Live Camera Feed</span></h2>
+        <div class="live-feed-wrap">
+          <img id="liveFeedImg" src="" alt="Live feed" style="display:none;" onerror="handleFeedError()" onload="handleFeedLoad()">
+          <div class="live-feed-empty" id="liveFeedEmpty">📷 Waiting for camera feed...</div>
+          <div class="live-feed-badge" id="liveFeedBadge" style="display:none;"><span class="dot on" style="width:7px;height:7px;border-radius:50%;"></span>LIVE FEED</div>
+        </div>
       </div>
 
       <div class="cards">
@@ -713,10 +729,28 @@ function downloadReport() {
 
 async function tick() { await loadSessions(); await refreshDashboard(); }
 
+function handleFeedLoad() {
+  document.getElementById("liveFeedImg").style.display = "block";
+  document.getElementById("liveFeedEmpty").style.display = "none";
+  document.getElementById("liveFeedBadge").style.display = "flex";
+}
+
+function handleFeedError() {
+  document.getElementById("liveFeedImg").style.display = "none";
+  document.getElementById("liveFeedEmpty").style.display = "flex";
+  document.getElementById("liveFeedBadge").style.display = "none";
+}
+
+function refreshFeed() {
+  document.getElementById("liveFeedImg").src = "/live_frame.jpg?t=" + Date.now();
+}
+
 tick();
 setInterval(tick, 4000);
 loadAttendanceTrend();
 setInterval(loadAttendanceTrend, 20000);
+refreshFeed();
+setInterval(refreshFeed, 800);
 </script>
 
 </body>

@@ -1,7 +1,7 @@
 """
 backend/app.py
 ---------------
-Flask REST API for ClassSentinel.
+Flask REST API for SmartMonitor.
 
 Reads from the same SQLite database that detection_system.py writes to,
 and serves the frontend dashboard. Run this AFTER detection_system.py
@@ -163,10 +163,10 @@ def api_report_pdf(session_id):
     generate_report_pdf(session_id, output_path)
 
     date_part = session["start_time"].split(" ")[0]
-    filename = f"ClassSentinel_Session{session_id}_{date_part}.pdf"
+    filename = f"SmartMonitor_Session{session_id}_{date_part}.pdf"
     return send_file(output_path, mimetype="application/pdf", as_attachment=True, download_name=filename)
 
 
 if __name__ == "__main__":
-    print("ClassSentinel backend running at http://localhost:5000")
+    print("SmartMonitor backend running at http://localhost:5000")
     app.run(host="0.0.0.0", port=5000, debug=True)

@@ -1,4 +1,4 @@
-# ClassSentinel
+# SmartMonitor
 
 Intelligent classroom monitoring system — face-recognition attendance,
 phone-usage detection (YOLOv8), and drowsiness detection (MediaPipe EAR),

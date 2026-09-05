@@ -1,5 +1,5 @@
 """
-ClassSentinel - Proper OpenCV SFace + YuNet Recognition Test
+SmartMonitor - Proper OpenCV SFace + YuNet Recognition Test
 --------------------------------------------------------------
 This is an isolated recognition test. It does NOT modify main.py and does
 not write attendance.
@@ -37,6 +37,7 @@ import voice_alerts
 # ================================================================
 
 PROJECT_ROOT = Path(__file__).resolve().parent
+LIVE_FRAME_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend", "live_frame.jpg")
 
 SFACE_MODEL = PROJECT_ROOT / "face_recognition_sface_2021dec.onnx"
 YUNET_MODEL = PROJECT_ROOT / "face_detection_yunet_2023mar.onnx"
@@ -110,7 +111,7 @@ def ensure_model(path: Path, url: str, minimum_bytes: int, label: str):
     try:
         request = urllib.request.Request(
             url,
-            headers={"User-Agent": "ClassSentinel/1.0"}
+            headers={"User-Agent": "SmartMonitor/1.0"}
         )
 
         with urllib.request.urlopen(request, timeout=90) as response, open(temp_path, "wb") as out:
@@ -958,7 +959,7 @@ except Exception as exc:
 
 print("Loading YOLO model...")
 yolo_model = YOLO("yolov8s.pt")
-print("All models loaded. Starting ClassSentinel...")
+print("All models loaded. Starting SmartMonitor...")
 
 already_marked_this_run = {}
 last_seen_write = {}
@@ -977,7 +978,7 @@ last_yolo_results = None
 PHONE_YOLO_EVERY_N_FRAMES = 2
 PHONE_CONFIDENCE_THRESHOLD = 0.15
 PHONE_CONFIRMATIONS = 2
-PHONE_RESULT_MAX_AGE = 0.90
+PHONE_RESULT_MAX_AGE = 2.5
 PHONE_IMAGE_SIZE = 640
 PHONE_IOU_THRESHOLD = 0.45
 PHONE_MAX_DETECTIONS = 30
@@ -1114,7 +1115,7 @@ cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.CAPTURE_HEIGHT)
 actual_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 actual_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 print(f"Requested {config.CAPTURE_WIDTH}x{config.CAPTURE_HEIGHT}, camera actually gave {actual_w}x{actual_h}.")
-print("ClassSentinel running. Press Q to quit.")
+print("SmartMonitor running. Press Q to quit.")
 print("Recognition: WORKING YuNet + SFace pipeline.")
 print("Attendance status: Present.")
 
@@ -1513,7 +1514,7 @@ try:
 
                         last = last_drowsy_log_by_key.get(key)
 
-                        if last is None or (now - last).total_seconds() >= 5:
+                        if last is None or (now - last).total_seconds() >= 15:
                             if elapsed >= config.DROWSY_SECONDS:
                                 drowsy = True
 
@@ -1522,7 +1523,7 @@ try:
 
                                 last = last_drowsy_log_by_key.get(key)
 
-                                if last is None or (now - last).total_seconds() >= 5:
+                                if last is None or (now - last).total_seconds() >= 15:
                                     try:
                                         db.log_drowsy_alert(
                                             session_id,
@@ -1795,10 +1796,18 @@ try:
                         )
 
                         # Allow movement of a phone between YOLO runs.
+                        # Loosened: with 3 students each running face
+                        # recognition + drowsiness + head-pose calibration
+                        # every frame, real time between YOLO passes can
+                        # exceed a second -- during which a naturally
+                        # held phone drifts more than the original tight
+                        # tolerance allowed, causing a brand-new track to
+                        # be created every time instead of continuing the
+                        # existing one, so count never reached 2.
                         max_shift = max(
-                            90.0,
-                            min(dw, dh) * 3.0,
-                            min(old_w, old_h) * 3.0
+                            160.0,
+                            min(dw, dh) * 5.0,
+                            min(old_w, old_h) * 5.0
                         )
 
                         if center_distance > max_shift:
@@ -1851,9 +1860,8 @@ try:
 
                     continuous = (
                         state["last_detection_time"] is not None
-                        and (
-                            now - state["last_detection_time"]
-                        ).total_seconds() <= 1.5
+                        and (now - state["last_detection_time"]).total_seconds()
+                        <= 3.0
                     )
 
                     box_stable = True
@@ -1883,8 +1891,8 @@ try:
                         )
 
                         max_shift = max(
-                            90.0,
-                            min(current_w, current_h) * 3.0
+                            160.0,
+                            min(current_w, current_h) * 5.0
                         )
 
                         if center_shift > max_shift:
@@ -1892,10 +1900,10 @@ try:
 
                         # Permit substantial size changes because a student
                         # may move the phone toward/away from the camera.
-                        if abs(current_w - old_w) / float(old_w) > 1.25:
+                        if abs(current_w - old_w) / float(old_w) > 2.0:
                             box_stable = False
 
-                        if abs(current_h - old_h) / float(old_h) > 1.25:
+                        if abs(current_h - old_h) / float(old_h) > 2.0:
                             box_stable = False
 
                     if continuous and box_stable:
@@ -1910,6 +1918,11 @@ try:
                     state["last_id"] = det["id"]
 
                 # Remove stale phone tracks. A track must not live forever.
+                if config.DEBUG_PRINT_EAR:
+                    for sid, state in phone_states.items():
+                        print(f"[PHONE TRACK] id={sid} name={state['last_name']} count={state['count']}")
+
+                # Remove stale phone tracks. A track must not live forever.
                 stale_ids = []
 
                 for state_id, state in phone_states.items():
@@ -1921,12 +1934,11 @@ try:
                         now - state["last_detection_time"]
                     ).total_seconds()
 
-                    if age > 2.0:
+                    if age > 4.0:
                         stale_ids.append(state_id)
 
                 for state_id in stale_ids:
                     phone_states.pop(state_id, None)
-
             # ------------------------------------------------------------
             # DRAW ALL CONFIRMED PHONES
             # ------------------------------------------------------------
@@ -1973,7 +1985,7 @@ try:
 
                     if sid is not None:
                         last = last_phone_log_by_key.get(sid)
-                        if last is None or (now - last).total_seconds() >= 5:
+                        if last is None or (now - last).total_seconds() >= 15:
                             try:
                                 db.log_phone_alert(session_id, sid, name)
                                 last_phone_log_by_key[sid] = now
@@ -2007,7 +2019,16 @@ try:
                 remaining = max(0, config.SESSION_DURATION_MINUTES - (now - session_start).total_seconds() / 60)
                 cv2.putText(frame, f"Time left: {int(remaining):02d}:{int((remaining % 1) * 60):02d}", (w - 220, 75), cv2.FONT_HERSHEY_SIMPLEX, .6, (255, 255, 255), 2)
 
-            cv2.imshow("ClassSentinel", frame)
+                        # ── Push the latest annotated frame to the dashboard ──────
+            # Throttled and downscaled: this is a monitoring thumbnail for
+            # the web dashboard, not a broadcast feed, so it doesn't need
+            # every frame at full resolution -- keeps disk I/O light on an
+            # already CPU-heavy per-frame pipeline.
+            if frame_counter % 3 == 0:
+                live_frame = cv2.resize(frame, (640, 360))
+                cv2.imwrite(LIVE_FRAME_PATH, live_frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
+
+            cv2.imshow("SmartMonitor", frame)
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
             if config.SESSION_DURATION_MINUTES is not None and (now - session_start).total_seconds() / 60 >= config.SESSION_DURATION_MINUTES:

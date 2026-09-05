@@ -26,7 +26,7 @@ def generate_and_send(session_id, start_time_str):
     Path(REPORTS_DIR).mkdir(exist_ok=True)
 
     date_part = start_time_str.split(" ")[0]
-    filename = f"ClassSentinel_Session{session_id}_{date_part}.pdf"
+    filename = f"SmartMonitor_Session{session_id}_{date_part}.pdf"
     output_path = os.path.join(REPORTS_DIR, filename)
 
     try:
@@ -48,12 +48,12 @@ def generate_and_send(session_id, start_time_str):
 
 def _send_email(pdf_path, session_id, filename):
     msg = EmailMessage()
-    msg["Subject"] = f"ClassSentinel Session #{session_id} Report"
+    msg["Subject"] = f"SmartMonitor Session #{session_id} Report"
     msg["From"] = config.EMAIL_SENDER_ADDRESS
     msg["To"] = config.REPORT_RECIPIENT_EMAIL
     msg.set_content(
         f"Attached is the automatically generated report for session #{session_id}.\n\n"
-        f"This email was sent automatically by ClassSentinel."
+        f"This email was sent automatically by SmartMonitor."
     )
 
     with open(pdf_path, "rb") as f:

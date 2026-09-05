@@ -1,7 +1,7 @@
 """
 voice_alerts.py
 ----------------
-Background text-to-speech worker for ClassSentinel.
+Background text-to-speech worker for SmartMonitor.
 
 Speaking directly inside the detection loop would block frame capture
 for the ~1-2 seconds each phrase takes — the same FPS problem already

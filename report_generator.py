@@ -27,7 +27,7 @@ class ReportPDF(FPDF):
         self.rect(0, 0, 210, 25, "F")
         self.set_font("Helvetica", "B", 17)
         self.set_text_color(255, 255, 255)
-        self.cell(0, 9, "ClassSentinel", ln=True)
+        self.cell(0, 9, "SmartMonitor", ln=True)
         self.set_font("Helvetica", "", 8)
         self.set_text_color(210, 225, 238)
         self.cell(0, 5, "SMART CLASSROOM MONITORING & ANALYTICS", ln=True)
