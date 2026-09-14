@@ -1,0 +1,43 @@
+{
+  "Monday": {
+    "08:00 AM": { "subject": "Bigdata Analytics", "faculty": "Prof. Vinutha D", "email": "jayadevhn27@gmail.com", "class": "7th Sem 'A'" },
+    "09:00 AM": { "subject": "Information Network Security", "faculty": "Dr. Arun Kumar G H", "email": "jayadevhn27@gmail.com", "class": "7th Sem 'A'" },
+    "10:30 AM": { "subject": "Parallel Computing", "faculty": "Prof. Manjushree K R", "email": "jayadevhn27@gmail.com", "class": "7th Sem 'A'" },
+    "11:30 AM": { "subject": "Software Quality Assurance", "faculty": "Prof. Sushma C", "email": "jayadevhn27@gmail.com", "class": "7th Sem 'A'" }
+
+  },
+  "Tuesday": {
+   "08:00 AM": { "subject": "Bigdata Analytics", "faculty": "Prof. Vinutha D", "email": "jayadevhn27@gmail.com", "class": "7th Sem 'A'" },
+    "09:00 AM": { "subject": "Information Network Security", "faculty": "Dr. Arun Kumar G H", "email": "jayadevhn27@gmail.com", "class": "7th Sem 'A'" },
+    "10:30 AM": { "subject": "Parallel Computing", "faculty": "Prof. Manjushree K R", "email": "jayadevhn27@gmail.com", "class": "7th Sem 'A'" },
+    "11:30 AM": { "subject": "Software Quality Assurance", "faculty": "Prof. Sushma C", "email": "jayadevhn27@gmail.com", "class": "7th Sem 'A'" }
+
+  },
+  "Wednesday": {
+   "08:00 AM": { "subject": "Bigdata Analytics", "faculty": "Prof. Vinutha D", "email": "jayadevhn27@gmail.com", "class": "7th Sem 'A'" },
+    "09:00 AM": { "subject": "Information Network Security", "faculty": "Dr. Arun Kumar G H", "email": "jayadevhn27@gmail.com", "class": "7th Sem 'A'" },
+    "10:30 AM": { "subject": "Parallel Computing", "faculty": "Prof. Manjushree K R", "email": "jayadevhn27@gmail.com", "class": "7th Sem 'A'" },
+    "11:30 AM": { "subject": "Software Quality Assurance", "faculty": "Prof. Sushma C", "email": "jayadevhn27@gmail.com", "class": "7th Sem 'A'" }
+
+  },
+  "Thursday": {
+   "08:00 AM": { "subject": "Bigdata Analytics", "faculty": "Prof. Vinutha D", "email": "jayadevhn27@gmail.com", "class": "7th Sem 'A'" },
+    "09:00 AM": { "subject": "Information Network Security", "faculty": "Dr. Arun Kumar G H", "email": "jayadevhn27@gmail.com", "class": "7th Sem 'A'" },
+    "10:30 AM": { "subject": "Parallel Computing", "faculty": "Prof. Manjushree K R", "email": "jayadevhn27@gmail.com", "class": "7th Sem 'A'" },
+    "11:30 AM": { "subject": "Software Quality Assurance", "faculty": "Prof. Sushma C", "email": "jayadevhn27@gmail.com", "class": "7th Sem 'A'" }
+
+  },
+  "Friday": {
+   "08:00 AM": { "subject": "Bigdata Analytics", "faculty": "Prof. Vinutha D", "email": "jayadevhn27@gmail.com", "class": "7th Sem 'A'" },
+    "09:00 AM": { "subject": "Information Network Security", "faculty": "Dr. Arun Kumar G H", "email": "jayadevhn27@gmail.com", "class": "7th Sem 'A'" },
+    "10:30 AM": { "subject": "Parallel Computing", "faculty": "Prof. Manjushree K R", "email": "jayadevhn27@gmail.com", "class": "7th Sem 'A'" },
+    "11:30 AM": { "subject": "Software Quality Assurance", "faculty": "Prof. Sushma C", "email": "jayadevhn27@gmail.com", "class": "7th Sem 'A'" }
+  },
+  "Saturday": {
+    "08:00 AM": { "subject": "Bigdata Analytics", "faculty": "Prof. Vinutha D", "email": "jayadevhn27@gmail.com", "class": "7th Sem 'A'" },
+    "09:00 AM": { "subject": "Information Network Security", "faculty": "Dr. Arun Kumar G H", "email": "jayadevhn27@gmail.com", "class": "7th Sem 'A'" },
+    "10:30 AM": { "subject": "Parallel Computing", "faculty": "Prof. Manjushree K R", "email": "jayadevhn27@gmail.com", "class": "7th Sem 'A'" },
+    "11:30 AM": { "subject": "Software Quality Assurance", "faculty": "Prof. Sushma C", "email": "jayadevhn27@gmail.com", "class": "7th Sem 'A'" }
+
+  }
+}

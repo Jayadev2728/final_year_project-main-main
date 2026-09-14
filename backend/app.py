@@ -25,6 +25,11 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import database as db
 import config
 from report_generator import generate_report_pdf
+try:
+    from timetable_helper import get_current_session, get_all_todays_sessions
+except Exception:
+    get_current_session = None
+    get_all_todays_sessions = None
 
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")
 
@@ -165,6 +170,39 @@ def api_report_pdf(session_id):
     date_part = session["start_time"].split(" ")[0]
     filename = f"SmartMonitor_Session{session_id}_{date_part}.pdf"
     return send_file(output_path, mimetype="application/pdf", as_attachment=True, download_name=filename)
+
+
+# ── Timetable ─────────────────────────────────────────────────
+@app.route("/api/timetable/current")
+def api_timetable_current():
+    try:
+        from timetable_helper import get_current_session
+        info = get_current_session()
+        if info:
+            return jsonify(info)
+    except Exception as e:
+        print(f"[TIMETABLE ERROR] {e}")
+
+    from datetime import datetime
+    now = datetime.now()
+    return jsonify({
+        "subject": "Mentoring Session",
+        "faculty": "Dr. Puneeth S P",
+        "email":   "puneeth@biet.ac.in",
+        "class":   "7th Sem IS&E 'A'",
+        "day":     now.strftime("%A"),
+        "period":  now.strftime("%I:%M %p")
+    })
+
+
+@app.route("/api/timetable/today")
+def api_timetable_today():
+    try:
+        from timetable_helper import get_all_todays_sessions
+        return jsonify(get_all_todays_sessions())
+    except Exception as e:
+        print(f"[TIMETABLE ERROR] {e}")
+        return jsonify([])
 
 
 if __name__ == "__main__":

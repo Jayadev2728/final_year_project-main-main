@@ -220,6 +220,30 @@ canvas{max-height:230px;}
   .nav-item.active::before{display:none;}
   .main{padding-bottom:90px;}
 }
+
+/* ── Session Info Bar ───────────────────────────────────────── */
+.session-bar{
+  display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+  background:linear-gradient(90deg,rgba(99,102,241,.10),rgba(79,209,197,.07));
+  border:1px solid rgba(99,102,241,.22);border-radius:14px;
+  padding:14px 20px;margin-bottom:22px;
+}
+.session-bar .sb-block{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.session-bar .sb-label{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--text-mute);}
+.session-bar .sb-value{font-family:var(--font-display);font-size:14px;font-weight:700;
+  color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.session-bar .sb-sep{width:1px;height:36px;background:var(--border);flex-shrink:0;}
+.session-bar .sb-clock{margin-left:auto;text-align:right;}
+.session-bar .sb-clock .sb-value{font-family:var(--font-mono);font-size:18px;
+  font-weight:700;color:var(--teal);letter-spacing:.04em;}
+.session-bar .sb-clock .sb-date{font-family:var(--font-mono);font-size:10px;
+  color:var(--text-mute);margin-top:1px;}
+.no-session-pill{display:inline-flex;align-items:center;gap:7px;
+  font-family:var(--font-mono);font-size:11px;color:var(--text-mute);
+  background:var(--surface-2);border:1px solid var(--border);
+  padding:6px 14px;border-radius:100px;}
+
 </style>
 </head>
 <body>
@@ -255,6 +279,40 @@ canvas{max-height:230px;}
         <div><h1>Overview</h1><div class="desc">Live snapshot of the current session</div></div>
       </div>
 
+
+      <!-- ══ SESSION INFO BAR ══ -->
+      <div class="session-bar" id="sessionInfoBar">
+        <div class="sb-block">
+          <div class="sb-label">Day</div>
+          <div class="sb-value" id="sbDay">—</div>
+        </div>
+        <div class="sb-sep"></div>
+        <div class="sb-block">
+          <div class="sb-label">Period</div>
+          <div class="sb-value" id="sbPeriod">—</div>
+        </div>
+        <div class="sb-sep"></div>
+        <div class="sb-block" style="flex:1;min-width:120px;">
+          <div class="sb-label">Subject</div>
+          <div class="sb-value" id="sbSubject">—</div>
+        </div>
+        <div class="sb-sep"></div>
+        <div class="sb-block" style="flex:1;min-width:120px;">
+          <div class="sb-label">Faculty</div>
+          <div class="sb-value" id="sbFaculty">—</div>
+        </div>
+        <div class="sb-sep"></div>
+        <div class="sb-block">
+          <div class="sb-label">Class</div>
+          <div class="sb-value" id="sbClass">—</div>
+        </div>
+        <div class="sb-sep"></div>
+        <div class="sb-block sb-clock">
+          <div class="sb-label">Current Time</div>
+          <div class="sb-value" id="sbTime">00:00:00</div>
+          <div class="sb-date" id="sbDate">—</div>
+        </div>
+      </div>
       <div class="panel">
         <h2><span class="tg"><span class="ico">📷</span>Live Camera Feed</span></h2>
         <div class="live-feed-wrap">
@@ -751,6 +809,51 @@ loadAttendanceTrend();
 setInterval(loadAttendanceTrend, 20000);
 refreshFeed();
 setInterval(refreshFeed, 800);
+
+
+// ── Live Clock ────────────────────────────────────────────────
+function updateClock() {
+  const now  = new Date();
+  let   hh   = now.getHours();
+  const ampm = hh >= 12 ? 'PM' : 'AM';
+  hh = hh % 12 || 12;
+  const mm  = String(now.getMinutes()).padStart(2,'0');
+  const ss  = String(now.getSeconds()).padStart(2,'0');
+  const timeEl = document.getElementById('sbTime');
+  if (timeEl) timeEl.textContent = `${hh}:${mm}:${ss} ${ampm}`;
+
+  const days   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const dateStr = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+  const dateEl = document.getElementById('sbDate');
+  if (dateEl) dateEl.textContent = dateStr;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── Timetable Session Info ────────────────────────────────────
+async function loadTimetableSession() {
+  try {
+    const data = await fetchJSON('/api/timetable/current');
+    document.getElementById('sbDay').textContent     = data.day     || '—';
+    document.getElementById('sbPeriod').textContent  = data.period  || '—';
+    document.getElementById('sbSubject').textContent = data.subject  || 'No class scheduled';
+    document.getElementById('sbFaculty').textContent = data.faculty  || '—';
+    document.getElementById('sbClass').textContent   = data.class    || '—';
+  } catch(e) {
+    // Fallback — show day/time at minimum
+    const now  = new Date();
+    const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    document.getElementById('sbDay').textContent    = days[now.getDay()];
+    document.getElementById('sbPeriod').textContent = `${String(now.getHours()).padStart(2,'0')}:00`;
+    document.getElementById('sbSubject').textContent = 'Timetable not available';
+    document.getElementById('sbFaculty').textContent = '—';
+    document.getElementById('sbClass').textContent   = '—';
+  }
+}
+loadTimetableSession();
+setInterval(loadTimetableSession, 60000);  // refresh every minute
+
 </script>
 
 </body>

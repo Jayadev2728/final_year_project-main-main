@@ -153,6 +153,11 @@ ALLOW_REMARK_SAME_DAY = False   # if False, re-running main.py the same day won'
 # then only ends when you press Q, same as before.
 SESSION_DURATION_MINUTES = 60
 
+# Demo session defaults (used when running outside timetable hours)
+DEMO_FACULTY_NAME  = "Dr. Puneeth S P"
+DEMO_FACULTY_EMAIL = "jayadevhn27@gmail.com"
+DEMO_CLASS         = "7th Sem IS&E 'A'"
+
 # ── Paths ────────────────────────────────────────────────────────
 STUDENT_PHOTOS_DIR = "student_photos"
 ATTENDANCE_CSV      = "attendance.csv"
