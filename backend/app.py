@@ -204,6 +204,22 @@ def api_timetable_today():
         print(f"[TIMETABLE ERROR] {e}")
         return jsonify([])
 
+# ADD THIS ROUTE to backend/app.py before if __name__ == "__main__":
+
+@app.route("/api/timetable/week")
+def api_timetable_week():
+    """Returns full weekly timetable from timetable.json for the dashboard schedule view."""
+    import json, os
+    tt_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "timetable.json"
+    )
+    try:
+        with open(tt_path, "r") as f:
+            return jsonify(json.load(f))
+    except Exception as e:
+        print(f"[TIMETABLE WEEK ERROR] {e}")
+        return jsonify({}), 500
 
 if __name__ == "__main__":
     print("SmartMonitor backend running at http://localhost:5000")
