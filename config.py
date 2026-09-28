@@ -20,7 +20,7 @@ EMAIL_REPORTS_ENABLED     = True
 SMTP_SERVER               = "smtp.gmail.com"
 SMTP_PORT                 = 587
 EMAIL_SENDER_ADDRESS      = "jayadevhn27@gmail.com"
-EMAIL_SENDER_APP_PASSWORD = "rcdrfcupqzngaxop"
+EMAIL_SENDER_APP_PASSWORD = "okkgyjhermjiotkf"
 REPORT_RECIPIENT_EMAIL    = "jayadevhn27@gmail.com"
 
 # ── Dashboard authentication ──────────────────────────────────────
